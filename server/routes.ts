@@ -188,18 +188,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const generations = generationResponse.data.generations || [];
       if (generations.length > 0) {
-        const resultImageUrl = generations[0].image_url;
+        const generationId = generations[0].id;
         
-        // Update generation with result
-        const updatedGeneration = await storage.updateGeneration(generation.id, {
-          outputImageUrl: resultImageUrl,
-          status: "COMPLETED"
-        });
+        // Poll for completion
+        const maxAttempts = 60; // 5 minutes max
+        let attempts = 0;
         
-        res.json({ 
-          generation: updatedGeneration,
-          resultUrl: resultImageUrl 
-        });
+        while (attempts < maxAttempts) {
+          try {
+            const statusResponse = await apiClient.get(`/generations/${generationId}`);
+            const genStatus = statusResponse.data.generation;
+            
+            console.log(`Generation ${generationId} status: ${genStatus.status}`);
+            
+            if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
+              // Update generation with result
+              const updatedGeneration = await storage.updateGeneration(generation.id, {
+                outputImageUrl: genStatus.image_url,
+                status: "COMPLETED"
+              });
+              
+              return res.json({ 
+                generation: updatedGeneration,
+                resultUrl: genStatus.image_url 
+              });
+            } else if (genStatus.status === 'FAILED') {
+              await storage.updateGeneration(generation.id, { status: "FAILED" });
+              return res.status(500).json({ message: "Generování selhalo" });
+            }
+            
+            // Wait 5 seconds before next check
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            attempts++;
+          } catch (pollError) {
+            console.error("Error polling generation status:", pollError);
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
+        
+        // Timeout
+        await storage.updateGeneration(generation.id, { status: "FAILED" });
+        res.status(500).json({ message: "Generování trvá příliš dlouho" });
       } else {
         await storage.updateGeneration(generation.id, { status: "FAILED" });
         res.status(500).json({ message: "Generování se nezdařilo" });
