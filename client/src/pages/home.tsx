@@ -15,17 +15,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-primary via-primary/95 to-primary shadow-xl">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center space-x-4 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-3">
-              <Wand2 className="h-8 w-8 text-white" />
-              <h1 className="text-3xl font-bold text-white">EverArt AI</h1>
-            </div>
-          </div>
-        </div>
-      </header>
+
 
       <div className="container mx-auto px-4 py-8">
         {/* Navigation Tabs */}

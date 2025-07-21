@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,8 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Image, Trash2, Download, Wand2, ChevronDown } from "lucide-react";
+import { Image, Trash2, Download, Wand2, Check } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
-import ModelSelectorModal from "@/components/model-selector-modal";
 import type { Model } from "@shared/schema";
 
 const applyModelSchema = z.object({
@@ -30,8 +29,15 @@ export default function ApplyModelTab() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [result, setResult] = useState<{ originalUrl: string; resultUrl: string } | null>(null);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
-  const [showModelSelector, setShowModelSelector] = useState(false);
   const { toast } = useToast();
+
+  // Fetch available models
+  const { data: modelsData } = useQuery({
+    queryKey: ['/api/models'],
+    queryFn: everArtApi.getModels
+  });
+
+  const readyModels = modelsData?.models?.filter(model => model.status === "READY") || [];
 
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
@@ -195,43 +201,53 @@ export default function ApplyModelTab() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-6">Použít model na obrázek</h2>
+      {/* Model Gallery */}
+      <div className="mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-0">
+          {readyModels.map((model) => (
+            <div
+              key={model.id}
+              onClick={() => handleModelSelect(model)}
+              className={`relative cursor-pointer transition-all duration-200 aspect-square ${
+                selectedModel?.id === model.id
+                  ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
+                  : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
+              }`}
+            >
+              <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden">
+                {model.thumbnailUrl ? (
+                  <img 
+                    src={model.thumbnailUrl} 
+                    alt={model.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Wand2 className="h-8 w-8 text-muted-foreground" />
+                )}
+                {selectedModel?.id === model.id && (
+                  <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                <p className="text-white text-xs font-medium truncate">{model.name}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        {form.formState.errors.modelId && (
+          <p className="text-sm text-red-600 mt-2">
+            {form.formState.errors.modelId.message}
+          </p>
+        )}
+      </div>
       
       <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg">
         <CardContent className="p-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Model Selection and Settings */}
+            {/* Settings */}
             <div className="space-y-6">
-              <div>
-                <Label>Vybrat model</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowModelSelector(true)}
-                  className="w-full mt-2 justify-between"
-                >
-                  {selectedModel ? (
-                    <div className="flex items-center space-x-3">
-                      {selectedModel.thumbnailUrl && (
-                        <img 
-                          src={selectedModel.thumbnailUrl} 
-                          alt={selectedModel.name}
-                          className="w-8 h-8 rounded object-cover"
-                        />
-                      )}
-                      <span>{selectedModel.name}</span>
-                    </div>
-                  ) : (
-                    "Vyberte model"
-                  )}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-                {form.formState.errors.modelId && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {form.formState.errors.modelId.message}
-                  </p>
-                )}
-              </div>
 
               {/* Settings Panel */}
               <div className="bg-gradient-to-r from-secondary/20 via-accent/20 to-secondary/20 rounded-2xl p-6 border border-border/50 shadow-sm backdrop-blur-sm">
@@ -418,12 +434,6 @@ export default function ApplyModelTab() {
         </CardContent>
       </Card>
 
-      {/* Model Selector Modal */}
-      <ModelSelectorModal
-        open={showModelSelector}
-        onOpenChange={setShowModelSelector}
-        onSelectModel={handleModelSelect}
-      />
     </div>
   );
 }
