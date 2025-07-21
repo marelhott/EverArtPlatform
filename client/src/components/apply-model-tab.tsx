@@ -235,7 +235,7 @@ export default function ApplyModelTab() {
               {/* Settings Panel */}
               <div className="bg-muted/30 rounded-lg p-4 border">
                 <h3 className="font-medium mb-4">Nastavení</h3>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Style Strength */}
                   <div>
                     <Label>
@@ -314,74 +314,77 @@ export default function ApplyModelTab() {
               )}
             </div>
 
-            {/* Two Column Layout for Images - smaller */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Input Image Column */}
-              <div>
-                <Label className="mb-2 block">Vstupní obrázek</Label>
-                <div 
-                  className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-4 text-center hover:border-primary/50 transition-colors aspect-square bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleImageDrop}
-                >
-                  {inputImagePreview ? (
-                    <div className="h-full flex flex-col">
-                      <img 
-                        src={inputImagePreview} 
-                        alt="Input preview" 
-                        className="flex-1 w-full object-cover rounded-lg shadow-sm"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={removeInputImage}
-                        className="mt-2"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Odebrat
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center">
-                      <Image className="h-10 w-10 text-muted-foreground mb-2" />
-                      <p className="font-medium mb-1 text-sm">Přetáhněte obrázek</p>
-                      <p className="text-xs text-muted-foreground mb-3">nebo</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => document.getElementById('inputImageInput')?.click()}
-                      >
-                        Vybrat soubor
-                      </Button>
-                    </div>
-                  )}
-                  <input
-                    id="inputImageInput"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-
-              {/* Result Image Column */}
-              <div>
-                <Label className="mb-2 block">Stylizovaný výsledek</Label>
-                <div className="border-2 border-muted-foreground/25 rounded-xl aspect-square flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm">
-                  {result ? (
-                    <img 
-                      src={result.resultUrl} 
-                      alt="Stylized result" 
-                      className="w-full h-full object-cover rounded-lg shadow-sm"
+            {/* Two Column Layout for Images - half size */}
+            <div className="flex justify-center">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
+                {/* Input Image Column */}
+                <div>
+                  <Label className="mb-2 block text-center">Vstupní obrázek</Label>
+                  <div 
+                    className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-3 text-center hover:border-primary/50 transition-colors aspect-square bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleImageDrop}
+                  >
+                    {inputImagePreview ? (
+                      <div className="h-full flex flex-col">
+                        <img 
+                          src={inputImagePreview} 
+                          alt="Input preview" 
+                          className="flex-1 w-full object-cover rounded-lg shadow-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={removeInputImage}
+                          className="mt-2"
+                        >
+                          <Trash2 className="mr-1 h-3 w-3" />
+                          Odebrat
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center">
+                        <Image className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="font-medium mb-1 text-xs">Přetáhněte obrázek</p>
+                        <p className="text-xs text-muted-foreground mb-2">nebo</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => document.getElementById('inputImageInput')?.click()}
+                          className="text-xs px-2 py-1"
+                        >
+                          Vybrat soubor
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      id="inputImageInput"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
                     />
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <Wand2 className="h-10 w-10 mx-auto mb-2" />
-                      <p className="text-sm">Výsledek se zobrazí zde</p>
-                    </div>
-                  )}
+                  </div>
+                </div>
+
+                {/* Result Image Column */}
+                <div>
+                  <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
+                  <div className="border-2 border-muted-foreground/25 rounded-xl aspect-square flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm">
+                    {result ? (
+                      <img 
+                        src={result.resultUrl} 
+                        alt="Stylized result" 
+                        className="w-full h-full object-cover rounded-lg shadow-sm"
+                      />
+                    ) : (
+                      <div className="text-center text-muted-foreground">
+                        <Wand2 className="h-8 w-8 mx-auto mb-2" />
+                        <p className="text-xs">Výsledek se zobrazí zde</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
