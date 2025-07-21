@@ -1,15 +1,8 @@
-import * as React from "react"
+import * as VisuallyHiddenPrimitive from "@radix-ui/react-visually-hidden"
+import { cn } from "@/lib/utils"
 
-const VisuallyHidden = React.forwardRef<
-  HTMLSpanElement,
-  React.HTMLAttributes<HTMLSpanElement>
->(({ className, ...props }, ref) => (
-  <span
-    ref={ref}
-    className="sr-only"
-    {...props}
-  />
-))
-VisuallyHidden.displayName = "VisuallyHidden"
+const VisuallyHidden = ({ className, ...props }: React.ComponentProps<typeof VisuallyHiddenPrimitive.Root>) => (
+  <VisuallyHiddenPrimitive.Root className={cn(className)} {...props} />
+)
 
 export { VisuallyHidden }

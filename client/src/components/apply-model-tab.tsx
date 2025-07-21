@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
 import { Image, Trash2, Download, Wand2, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
 import type { Model, Generation } from "@shared/schema";
@@ -30,7 +31,8 @@ export default function ApplyModelTab() {
   const [inputImagePreview, setInputImagePreview] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
-  const [result, setResult] = useState<{ originalUrl: string; resultUrl: string } | null>(null);
+  const [results, setResults] = useState<{ originalUrl: string; resultUrl: string }[]>([]);
+  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const { toast } = useToast();
 
@@ -68,23 +70,44 @@ export default function ApplyModelTab() {
         description: "Styl byl úspěšně aplikován na obrázek"
       });
       
-      setResult({
-        originalUrl: inputImagePreview,
-        resultUrl: data.resultUrl
-      });
+      // Handle multiple results if available
+      if (data.generation && data.generation.outputImageUrl) {
+        setResults([{
+          originalUrl: inputImagePreview,
+          resultUrl: data.generation.outputImageUrl
+        }]);
+        setSelectedResultIndex(0);
+      } else if (data.resultUrl) {
+        setResults([{
+          originalUrl: inputImagePreview,
+          resultUrl: data.resultUrl
+        }]);
+        setSelectedResultIndex(0);
+      }
       setIsProcessing(false);
       setProcessingProgress(0);
       
-      // Save to localStorage
-      if (data.resultUrl && selectedModel) {
-        const localGeneration: LocalGeneration = {
-          id: Date.now().toString(),
-          outputImageUrl: data.resultUrl,
-          inputImageUrl: inputImagePreview,
-          modelId: selectedModel.everartId,
-          createdAt: new Date().toISOString()
-        };
-        localGenerationsStorage.saveGeneration(localGeneration);
+      // Save to localStorage - save all generated images
+      if (selectedModel) {
+        if (data.generation && data.generation.outputImageUrl) {
+          const localGeneration: LocalGeneration = {
+            id: Date.now().toString(),
+            outputImageUrl: data.generation.outputImageUrl,
+            inputImageUrl: inputImagePreview,
+            modelId: selectedModel.everartId,
+            createdAt: new Date().toISOString()
+          };
+          localGenerationsStorage.saveGeneration(localGeneration);
+        } else if (data.resultUrl) {
+          const localGeneration: LocalGeneration = {
+            id: Date.now().toString(),
+            outputImageUrl: data.resultUrl,
+            inputImageUrl: inputImagePreview,
+            modelId: selectedModel.everartId,
+            createdAt: new Date().toISOString()
+          };
+          localGenerationsStorage.saveGeneration(localGeneration);
+        }
       }
     },
     onError: (error) => {
@@ -104,7 +127,7 @@ export default function ApplyModelTab() {
       setInputImage(file);
       const preview = URL.createObjectURL(file);
       setInputImagePreview(preview);
-      setResult(null);
+      setResults([]);
     }
   }, []);
 
@@ -115,7 +138,7 @@ export default function ApplyModelTab() {
       setInputImage(file);
       const preview = URL.createObjectURL(file);
       setInputImagePreview(preview);
-      setResult(null);
+      setResults([]);
     }
   }, []);
 
@@ -125,21 +148,21 @@ export default function ApplyModelTab() {
     }
     setInputImage(null);
     setInputImagePreview("");
-    setResult(null);
+    setResults([]);
   };
 
   const resetForm = () => {
     form.reset();
     removeInputImage();
-    setResult(null);
+    setResults([]);
     setSelectedModel(null);
   };
 
   const downloadResult = async () => {
-    if (!result?.resultUrl) return;
+    if (!results[selectedResultIndex]?.resultUrl) return;
 
     try {
-      const response = await fetch(result.resultUrl);
+      const response = await fetch(results[selectedResultIndex].resultUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -218,34 +241,35 @@ export default function ApplyModelTab() {
     <div>
       {/* Model Gallery */}
       <div className="mb-6">
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 xl:grid-cols-16 gap-0">
+        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-14 xl:grid-cols-18 gap-2">
           {readyModels.map((model) => (
             <div
               key={model.id}
               onClick={() => handleModelSelect(model)}
-              className={`relative cursor-pointer transition-all duration-200 aspect-square ${
+              className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-1 ${
                 selectedModel?.id === model.id
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
+              style={{ width: '70px', height: '70px' }}
             >
-              <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden rounded-md">
                 {model.thumbnailUrl ? (
                   <img 
                     src={model.thumbnailUrl} 
                     alt={model.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-md"
                   />
                 ) : (
-                  <Wand2 className="h-8 w-8 text-muted-foreground" />
+                  <Wand2 className="h-6 w-6 text-muted-foreground" />
                 )}
                 {selectedModel?.id === model.id && (
-                  <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
-                    <Check className="h-3 w-3" />
+                  <div className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground rounded-full p-0.5">
+                    <Check className="h-2 w-2" />
                   </div>
                 )}
               </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+              <div className="absolute bottom-0.5 left-0.5 right-0.5 bg-gradient-to-t from-black/60 to-transparent p-1 rounded-b-md">
                 <p className="text-white text-xs font-medium truncate">{model.name}</p>
               </div>
             </div>
@@ -405,13 +429,13 @@ export default function ApplyModelTab() {
                   <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
                   <div 
                     className="border-2 border-border/30 rounded-2xl p-4 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm"
-                    style={{ aspectRatio: result ? 'auto' : '1' }}
+                    style={{ aspectRatio: results.length > 0 ? 'auto' : '1' }}
                   >
-                    {result ? (
+                    {results.length > 0 && results[selectedResultIndex] ? (
                       <Dialog>
                         <DialogTrigger asChild>
                           <img 
-                            src={result.resultUrl} 
+                            src={results[selectedResultIndex].resultUrl} 
                             alt="Stylized result" 
                             className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                           />
@@ -422,7 +446,7 @@ export default function ApplyModelTab() {
                           </VisuallyHidden>
                           <div className="flex justify-center items-center min-h-0">
                             <img 
-                              src={result.resultUrl} 
+                              src={results[selectedResultIndex].resultUrl} 
                               alt="Stylized result - enlarged" 
                               className="max-w-full max-h-[90vh] object-contain rounded-lg"
                             />
@@ -436,6 +460,33 @@ export default function ApplyModelTab() {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Thumbnail Gallery */}
+                  {results.length > 1 && (
+                    <div className="mt-4">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Výsledky ({results.length})</Label>
+                      <div className="flex space-x-2 overflow-x-auto pb-2">
+                        {results.map((result, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setSelectedResultIndex(index)}
+                            className={cn(
+                              "flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors",
+                              selectedResultIndex === index 
+                                ? "border-primary shadow-md" 
+                                : "border-border/30 hover:border-primary/50"
+                            )}
+                          >
+                            <img 
+                              src={result.resultUrl}
+                              alt={`Result ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -446,7 +497,7 @@ export default function ApplyModelTab() {
                 Resetovat
               </Button>
               
-              {result && (
+              {results.length > 0 && (
                 <Button onClick={downloadResult} variant="outline">
                   <Download className="mr-2 h-4 w-4" />
                   Stáhnout
