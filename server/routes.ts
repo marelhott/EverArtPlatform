@@ -258,6 +258,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete generation
+  app.delete("/api/generations/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteGeneration(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting generation:", error);
+      res.status(500).json({ message: "Nelze smazat generování" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

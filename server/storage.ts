@@ -18,6 +18,7 @@ export interface IStorage {
   getGeneration(id: number): Promise<Generation | undefined>;
   createGeneration(generation: InsertGeneration): Promise<Generation>;
   updateGeneration(id: number, updates: Partial<Generation>): Promise<Generation | undefined>;
+  deleteGeneration(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -114,6 +115,10 @@ export class MemStorage implements IStorage {
       return updated;
     }
     return undefined;
+  }
+
+  async deleteGeneration(id: number): Promise<boolean> {
+    return this.generations.delete(id);
   }
 }
 
