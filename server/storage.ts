@@ -69,7 +69,8 @@ export class MemStorage implements IStorage {
     const model: Model = { 
       ...insertModel, 
       id, 
-      createdAt: new Date() 
+      createdAt: new Date(),
+      thumbnailUrl: insertModel.thumbnailUrl || null
     };
     this.models.set(id, model);
     return model;
@@ -98,7 +99,8 @@ export class MemStorage implements IStorage {
     const generation: Generation = { 
       ...insertGeneration, 
       id, 
-      createdAt: new Date() 
+      createdAt: new Date(),
+      outputImageUrl: null
     };
     this.generations.set(id, generation);
     return generation;

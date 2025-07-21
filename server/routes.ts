@@ -140,6 +140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Žádný obrázek nebyl nahrán" });
       }
 
+      console.log("Applying model:", everartId, "with params:", { styleStrength, width, height });
+
       // Upload input image
       const filename = file.originalname;
       const contentType = file.mimetype;
@@ -149,32 +151,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const uploadData = uploadResponse.data.image_uploads[0];
+      console.log("Upload response data:", JSON.stringify(uploadData, null, 2));
       
       await axios.put(uploadData.upload_url, file.buffer, {
         headers: { "Content-Type": contentType }
       });
 
+      console.log("Image uploaded with token:", uploadData.upload_token);
+
       // Create generation locally
       const generation = await storage.createGeneration({
         modelId: everartId,
-        inputImageUrl: "uploaded", // placeholder
+        inputImageUrl: uploadData.upload_url,
         status: "PROCESSING",
         styleStrength: parseFloat(styleStrength),
         width: parseInt(width),
         height: parseInt(height)
       });
 
-      // Generate with EverArt
-      const generationResponse = await apiClient.post(`/models/${everartId}/generations`, {
+      // Generate with EverArt - according to official API docs
+      const generationPayload = {
         prompt: " ",
-        type: "img2img",
-        model_id: everartId,
+        type: "img2img", 
+        image: uploadData.file_url,  // Use file_url from upload response
         image_count: 1,
         width: parseInt(width),
         height: parseInt(height),
-        style_strength: parseFloat(styleStrength),
-        image_upload_token: uploadData.upload_token
-      });
+        style_strength: parseFloat(styleStrength)
+      };
+
+      console.log("Sending generation request:", JSON.stringify(generationPayload, null, 2));
+
+      const generationResponse = await apiClient.post(`/models/${everartId}/generations`, generationPayload);
+
+      console.log("Generation response:", generationResponse.data);
 
       const generations = generationResponse.data.generations || [];
       if (generations.length > 0) {
@@ -196,7 +206,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error applying model:", error);
-      res.status(500).json({ message: "Nepodařilo se aplikovat model" });
+      if (error.response) {
+        console.error("EverArt API response:", error.response.data);
+        console.error("Status:", error.response.status);
+      }
+      res.status(500).json({ 
+        message: "Nepodařilo se aplikovat model",
+        error: error.response?.data || error.message 
+      });
     }
   });
 
