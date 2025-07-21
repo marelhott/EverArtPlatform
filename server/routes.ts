@@ -133,14 +133,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/models/:everartId/apply", upload.single('image'), async (req, res) => {
     try {
       const { everartId } = req.params;
-      const { styleStrength = 0.6, width = 512, height = 512 } = req.body;
+      const { styleStrength = 0.6, width = 512, height = 512, numImages = 1 } = req.body;
       const file = req.file;
       
       if (!file) {
         return res.status(400).json({ message: "Žádný obrázek nebyl nahrán" });
       }
 
-      console.log("Applying model:", everartId, "with params:", { styleStrength, width, height });
+      console.log("Applying model:", everartId, "with params:", { styleStrength, width, height, numImages });
 
       // Upload input image
       const filename = file.originalname;
@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         prompt: " ",
         type: "img2img", 
         image: uploadData.file_url,  // Use file_url from upload response
-        image_count: 1,
+        image_count: parseInt(numImages),
         width: parseInt(width),
         height: parseInt(height),
         style_strength: parseFloat(styleStrength)

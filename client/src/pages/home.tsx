@@ -18,17 +18,10 @@ export default function Home() {
       {/* Header */}
       <header className="bg-primary text-primary-foreground shadow-lg">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <Wand2 className="h-8 w-8" />
               <h1 className="text-2xl font-bold">EverArt AI</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm opacity-90">API Status:</span>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm">Připojeno</span>
-              </div>
             </div>
           </div>
         </div>
@@ -36,46 +29,42 @@ export default function Home() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Navigation Tabs */}
-        <div className="mb-8">
-          <div className="border-b border-border">
-            <nav className="flex items-center justify-between">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-                <TabsList className="grid w-full max-w-md grid-cols-3 bg-transparent border-none p-0 h-auto">
-                  <TabsTrigger 
-                    value="apply"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent py-2 px-4 font-medium text-sm rounded-none bg-transparent"
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Použít model
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="create"
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent py-2 px-4 font-medium text-sm rounded-none bg-transparent"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Vytvořit model
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="models" 
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent py-2 px-4 font-medium text-sm rounded-none bg-transparent"
-                  >
-                    <List className="mr-2 h-4 w-4" />
-                    Všechny modely
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowApiKeyModal(true)}
-                className="ml-4"
+        <div className="mb-8 flex justify-center">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="bg-muted/50 rounded-lg p-1 border shadow-sm">
+              <TabsTrigger 
+                value="apply"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground transition-all rounded-md px-4 py-2 text-sm font-medium"
               >
-                <Key className="mr-2 h-4 w-4" />
-                API klíč
-              </Button>
-            </nav>
-          </div>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Použít model
+              </TabsTrigger>
+              <TabsTrigger 
+                value="create"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground transition-all rounded-md px-4 py-2 text-sm font-medium"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Vytvořit model
+              </TabsTrigger>
+              <TabsTrigger 
+                value="models" 
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground transition-all rounded-md px-4 py-2 text-sm font-medium"
+              >
+                <List className="mr-2 h-4 w-4" />
+                Všechny modely
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowApiKeyModal(true)}
+            className="ml-4"
+          >
+            <Key className="mr-2 h-4 w-4" />
+            API klíč
+          </Button>
         </div>
 
         {/* Tab Content */}

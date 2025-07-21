@@ -16,7 +16,8 @@ import type { Model } from "@shared/schema";
 
 const applyModelSchema = z.object({
   modelId: z.string().min(1, "Vyberte model"),
-  styleStrength: z.number().min(0).max(1)
+  styleStrength: z.number().min(0).max(1),
+  numImages: z.number().min(1).max(4)
 });
 
 type ApplyModelForm = z.infer<typeof applyModelSchema>;
@@ -35,7 +36,8 @@ export default function ApplyModelTab() {
     resolver: zodResolver(applyModelSchema),
     defaultValues: {
       modelId: "",
-      styleStrength: 0.6
+      styleStrength: 0.6,
+      numImages: 1
     }
   });
 
@@ -46,6 +48,7 @@ export default function ApplyModelTab() {
       formData.append('styleStrength', data.styleStrength.toString());
       formData.append('width', '512');
       formData.append('height', '512');
+      formData.append('numImages', data.numImages.toString());
 
       return everArtApi.applyModel(data.modelId, formData);
     },
@@ -178,6 +181,7 @@ export default function ApplyModelTab() {
   };
 
   const styleStrength = form.watch('styleStrength');
+  const numImages = form.watch('numImages');
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
@@ -195,8 +199,8 @@ export default function ApplyModelTab() {
       <Card>
         <CardContent className="p-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Model Selection */}
-            <div className="space-y-4">
+            {/* Model Selection and Settings */}
+            <div className="space-y-6">
               <div>
                 <Label>Vybrat model</Label>
                 <Button
@@ -228,35 +232,95 @@ export default function ApplyModelTab() {
                 )}
               </div>
 
-              {/* Style Strength */}
-              <div>
-                <Label>
-                  Síla stylu: {styleStrength.toFixed(1)}
-                </Label>
-                <div className="mt-2">
-                  <Slider
-                    value={[styleStrength]}
-                    onValueChange={([value]) => form.setValue('styleStrength', value)}
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>Slabý (0.0)</span>
-                    <span>Silný (1.0)</span>
+              {/* Settings Panel */}
+              <div className="bg-muted/30 rounded-lg p-4 border">
+                <h3 className="font-medium mb-4">Nastavení</h3>
+                <div className="space-y-4">
+                  {/* Style Strength */}
+                  <div>
+                    <Label>
+                      Síla stylu: {styleStrength.toFixed(1)}
+                    </Label>
+                    <div className="mt-2">
+                      <Slider
+                        value={[styleStrength]}
+                        onValueChange={([value]) => form.setValue('styleStrength', value)}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>Slabý (0.0)</span>
+                        <span>Silný (1.0)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Number of Images */}
+                  <div>
+                    <Label>
+                      Počet generovaných obrázků: {numImages}
+                    </Label>
+                    <div className="mt-2">
+                      <Slider
+                        value={[numImages]}
+                        onValueChange={([value]) => form.setValue('numImages', value)}
+                        min={1}
+                        max={4}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>1 obrázek</span>
+                        <span>4 obrázky</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Apply Button */}
+              <div className="flex justify-center">
+                <Button 
+                  type="submit" 
+                  disabled={isProcessing || applyModelMutation.isPending}
+                  className="px-8 py-2"
+                  size="lg"
+                >
+                  {isProcessing || applyModelMutation.isPending ? (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                      Aplikuji model
+                    </>
+                  ) : (
+                    "Aplikovat model"
+                  )}
+                </Button>
+              </div>
+
+              {/* Progress Bar */}
+              {isProcessing && (
+                <div className="bg-muted/30 rounded-lg p-4 border">
+                  <div className="flex items-center mb-2">
+                    <Wand2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+                    <span className="font-medium">Zpracovávám obrázek...</span>
+                  </div>
+                  <Progress value={processingProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    {Math.round(processingProgress)}% dokončeno
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Two Column Layout for Images */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Two Column Layout for Images - smaller */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Input Image Column */}
               <div>
                 <Label className="mb-2 block">Vstupní obrázek</Label>
                 <div 
-                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors aspect-square"
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-4 text-center hover:border-primary/50 transition-colors aspect-square bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageDrop}
                 >
@@ -265,7 +329,7 @@ export default function ApplyModelTab() {
                       <img 
                         src={inputImagePreview} 
                         alt="Input preview" 
-                        className="flex-1 w-full object-cover rounded-lg"
+                        className="flex-1 w-full object-cover rounded-lg shadow-sm"
                       />
                       <Button
                         type="button"
@@ -280,9 +344,9 @@ export default function ApplyModelTab() {
                     </div>
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center">
-                      <Image className="h-12 w-12 text-muted-foreground mb-3" />
-                      <p className="font-medium mb-2">Přetáhněte obrázek</p>
-                      <p className="text-sm text-muted-foreground mb-4">nebo</p>
+                      <Image className="h-10 w-10 text-muted-foreground mb-2" />
+                      <p className="font-medium mb-1 text-sm">Přetáhněte obrázek</p>
+                      <p className="text-xs text-muted-foreground mb-3">nebo</p>
                       <Button
                         type="button"
                         size="sm"
@@ -305,16 +369,16 @@ export default function ApplyModelTab() {
               {/* Result Image Column */}
               <div>
                 <Label className="mb-2 block">Stylizovaný výsledek</Label>
-                <div className="border-2 border-muted-foreground/25 rounded-lg aspect-square flex items-center justify-center bg-muted">
+                <div className="border-2 border-muted-foreground/25 rounded-xl aspect-square flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm">
                   {result ? (
                     <img 
                       src={result.resultUrl} 
                       alt="Stylized result" 
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover rounded-lg shadow-sm"
                     />
                   ) : (
                     <div className="text-center text-muted-foreground">
-                      <Wand2 className="h-12 w-12 mx-auto mb-2" />
+                      <Wand2 className="h-10 w-10 mx-auto mb-2" />
                       <p className="text-sm">Výsledek se zobrazí zde</p>
                     </div>
                   )}
@@ -322,33 +386,8 @@ export default function ApplyModelTab() {
               </div>
             </div>
 
-            {/* Apply Button and Progress */}
-            <div className="flex items-center space-x-4 pt-4 border-t">
-              <Button 
-                type="submit" 
-                disabled={isProcessing || applyModelMutation.isPending}
-                className="min-w-[140px]"
-              >
-                {isProcessing || applyModelMutation.isPending ? (
-                  <>
-                    <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                    Aplikuji model
-                  </>
-                ) : (
-                  "Aplikovat model"
-                )}
-              </Button>
-              
-              {/* Progress Bar */}
-              {isProcessing && (
-                <div className="flex-1">
-                  <Progress value={processingProgress} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Zpracovávám... {Math.round(processingProgress)}%
-                  </p>
-                </div>
-              )}
-              
+            {/* Action Buttons */}
+            <div className="flex justify-center space-x-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={resetForm}>
                 Resetovat
               </Button>
