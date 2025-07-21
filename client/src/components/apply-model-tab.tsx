@@ -38,14 +38,7 @@ export default function ApplyModelTab() {
     queryFn: everArtApi.getModels
   });
 
-  // Fetch generations gallery
-  const { data: generationsData, refetch: refetchGenerations } = useQuery({
-    queryKey: ['/api/generations'],
-    staleTime: 30000
-  });
-
   const readyModels = modelsData?.models?.filter(model => model.status === "READY") || [];
-  const generations = generationsData?.generations || [];
 
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
@@ -79,9 +72,6 @@ export default function ApplyModelTab() {
       });
       setIsProcessing(false);
       setProcessingProgress(0);
-      
-      // Refresh generations gallery
-      refetchGenerations();
     },
     onError: (error) => {
       toast({
@@ -92,25 +82,6 @@ export default function ApplyModelTab() {
       setIsProcessing(false);
       setProcessingProgress(0);
     }
-  });
-
-  const deleteGenerationMutation = useMutation({
-    mutationFn: (id: number) => 
-      fetch(`/api/generations/${id}`, { method: 'DELETE' }).then(res => res.json()),
-    onSuccess: () => {
-      refetchGenerations();
-      toast({
-        title: "Smazáno",
-        description: "Obrázek byl smazán z galerie.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Chyba",
-        description: "Při mazání obrázku došlo k chybě.",
-        variant: "destructive",
-      });
-    },
   });
 
   const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -279,49 +250,46 @@ export default function ApplyModelTab() {
             {/* Settings */}
             <div className="space-y-6">
 
-              {/* Settings Panel */}
-              <div className="bg-gradient-to-r from-secondary/20 via-accent/20 to-secondary/20 rounded-2xl p-6 border border-border/50 shadow-sm backdrop-blur-sm">
-                <h3 className="font-medium mb-4">Nastavení</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Style Strength */}
-                  <div>
-                    <Label>
-                      Síla stylu: {styleStrength.toFixed(1)}
-                    </Label>
-                    <div className="mt-2">
-                      <Slider
-                        value={[styleStrength]}
-                        onValueChange={([value]) => form.setValue('styleStrength', value)}
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>Slabý (0.0)</span>
-                        <span>Silný (1.0)</span>
-                      </div>
+              {/* Settings - Two separate boxes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Style Strength Box */}
+                <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-2xl p-4 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-green-700 dark:text-green-300 font-medium">
+                    Síla stylu: {styleStrength.toFixed(1)}
+                  </Label>
+                  <div className="mt-3">
+                    <Slider
+                      value={[styleStrength]}
+                      onValueChange={([value]) => form.setValue('styleStrength', value)}
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-green-600 dark:text-green-400 mt-2">
+                      <span>Slabý (0.0)</span>
+                      <span>Silný (1.0)</span>
                     </div>
                   </div>
+                </div>
 
-                  {/* Number of Images */}
-                  <div>
-                    <Label>
-                      Počet generovaných obrázků: {numImages}
-                    </Label>
-                    <div className="mt-2">
-                      <Slider
-                        value={[numImages]}
-                        onValueChange={([value]) => form.setValue('numImages', value)}
-                        min={1}
-                        max={4}
-                        step={1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>1 obrázek</span>
-                        <span>4 obrázky</span>
-                      </div>
+                {/* Number of Images Box */}
+                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-2xl p-4 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-blue-700 dark:text-blue-300 font-medium">
+                    Počet obrázků: {numImages}
+                  </Label>
+                  <div className="mt-3">
+                    <Slider
+                      value={[numImages]}
+                      onValueChange={([value]) => form.setValue('numImages', value)}
+                      min={1}
+                      max={4}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      <span>1 obrázek</span>
+                      <span>4 obrázky</span>
                     </div>
                   </div>
                 </div>
@@ -464,66 +432,7 @@ export default function ApplyModelTab() {
         </CardContent>
       </Card>
 
-      {/* Generations Gallery Card */}
-      <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg mt-6">
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Modifikace</h3>
-          
-          {generations.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Wand2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Zatím žádné vygenerované obrázky</p>
-              <p className="text-sm">Vygenerované obrázky se zobrazí zde</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {generations.map((generation: Generation) => (
-                <div key={generation.id} className="relative group">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <div className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-all">
-                        {generation.outputImageUrl ? (
-                          <img 
-                            src={generation.outputImageUrl} 
-                            alt="Vygenerovaný obrázek"
-                            className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center">
-                            <Wand2 className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-                      {generation.outputImageUrl && (
-                        <img 
-                          src={generation.outputImageUrl} 
-                          alt="Vygenerovaný obrázek - zvětšený"
-                          className="w-full h-full object-contain rounded-lg"
-                        />
-                      )}
-                    </DialogContent>
-                  </Dialog>
-                  
-                  {/* Delete button */}
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteGenerationMutation.mutate(generation.id);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
 
     </div>
   );

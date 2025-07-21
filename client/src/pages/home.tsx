@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import ModelsTab from "@/components/models-tab";
 import CreateModelTab from "@/components/create-model-tab";
 import ApplyModelTab from "@/components/apply-model-tab";
+import ModificationsTab from "@/components/modifications-tab";
 import ApiKeyModal from "@/components/api-key-modal";
 import { List, Plus, Wand2, Key, Wifi } from "lucide-react";
 
@@ -28,6 +29,13 @@ export default function Home() {
               >
                 <Wand2 className="mr-2 h-4 w-4" />
                 Použít model
+              </TabsTrigger>
+              <TabsTrigger 
+                value="modifications"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground transition-all rounded-md px-4 py-2 text-sm font-medium"
+              >
+                <Wand2 className="mr-2 h-4 w-4" />
+                Modifikace
               </TabsTrigger>
               <TabsTrigger 
                 value="create"
@@ -61,6 +69,9 @@ export default function Home() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsContent value="apply" className="mt-0">
             <ApplyModelTab />
+          </TabsContent>
+          <TabsContent value="modifications" className="mt-0">
+            <ModificationsTab />
           </TabsContent>
           <TabsContent value="create" className="mt-0">
             <CreateModelTab />
