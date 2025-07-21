@@ -16,12 +16,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground shadow-lg">
-        <div className="container mx-auto px-4 py-6">
+      <header className="bg-gradient-to-r from-primary via-primary/95 to-primary shadow-xl">
+        <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center">
-            <div className="flex items-center space-x-3">
-              <Wand2 className="h-8 w-8" />
-              <h1 className="text-2xl font-bold">EverArt AI</h1>
+            <div className="flex items-center space-x-4 bg-white/10 backdrop-blur-sm rounded-2xl px-6 py-3">
+              <Wand2 className="h-8 w-8 text-white" />
+              <h1 className="text-3xl font-bold text-white">EverArt AI</h1>
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@ export default function Home() {
         {/* Navigation Tabs */}
         <div className="mb-8 flex justify-center">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-muted/50 rounded-lg p-1 border shadow-sm">
+            <TabsList className="bg-gradient-to-r from-secondary/30 via-card to-accent/30 rounded-2xl p-1 border border-border/50 shadow-lg backdrop-blur-sm">
               <TabsTrigger 
                 value="apply"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground hover:text-foreground transition-all rounded-md px-4 py-2 text-sm font-medium"

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Image, Trash2, Download, Wand2, ChevronDown } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
@@ -196,7 +197,7 @@ export default function ApplyModelTab() {
     <div>
       <h2 className="text-xl font-semibold mb-6">Použít model na obrázek</h2>
       
-      <Card>
+      <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg">
         <CardContent className="p-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Model Selection and Settings */}
@@ -233,7 +234,7 @@ export default function ApplyModelTab() {
               </div>
 
               {/* Settings Panel */}
-              <div className="bg-muted/30 rounded-lg p-4 border">
+              <div className="bg-gradient-to-r from-secondary/20 via-accent/20 to-secondary/20 rounded-2xl p-6 border border-border/50 shadow-sm backdrop-blur-sm">
                 <h3 className="font-medium mb-4">Nastavení</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Style Strength */}
@@ -301,7 +302,7 @@ export default function ApplyModelTab() {
 
               {/* Progress Bar */}
               {isProcessing && (
-                <div className="bg-muted/30 rounded-lg p-4 border">
+                <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-4 border border-border/50 shadow-sm backdrop-blur-sm">
                   <div className="flex items-center mb-2">
                     <Wand2 className="mr-2 h-4 w-4 animate-spin text-primary" />
                     <span className="font-medium">Zpracovávám obrázek...</span>
@@ -314,14 +315,14 @@ export default function ApplyModelTab() {
               )}
             </div>
 
-            {/* Two Column Layout for Images - half size */}
+            {/* Two Column Layout for Images - 30% larger */}
             <div className="flex justify-center">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
                 {/* Input Image Column */}
                 <div>
                   <Label className="mb-2 block text-center">Vstupní obrázek</Label>
                   <div 
-                    className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-3 text-center hover:border-primary/50 transition-colors aspect-square bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm"
+                    className="border-2 border-dashed border-border/30 rounded-2xl p-4 text-center hover:border-primary/50 transition-all aspect-square bg-gradient-to-br from-secondary/20 via-card to-accent/15 shadow-lg backdrop-blur-sm"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleImageDrop}
                   >
@@ -371,13 +372,24 @@ export default function ApplyModelTab() {
                 {/* Result Image Column */}
                 <div>
                   <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
-                  <div className="border-2 border-muted-foreground/25 rounded-xl aspect-square flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 shadow-sm">
+                  <div className="border-2 border-border/30 rounded-2xl aspect-square flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm">
                     {result ? (
-                      <img 
-                        src={result.resultUrl} 
-                        alt="Stylized result" 
-                        className="w-full h-full object-cover rounded-lg shadow-sm"
-                      />
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <img 
+                            src={result.resultUrl} 
+                            alt="Stylized result" 
+                            className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                          />
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+                          <img 
+                            src={result.resultUrl} 
+                            alt="Stylized result - enlarged" 
+                            className="w-full h-full object-contain rounded-lg"
+                          />
+                        </DialogContent>
+                      </Dialog>
                     ) : (
                       <div className="text-center text-muted-foreground">
                         <Wand2 className="h-8 w-8 mx-auto mb-2" />
