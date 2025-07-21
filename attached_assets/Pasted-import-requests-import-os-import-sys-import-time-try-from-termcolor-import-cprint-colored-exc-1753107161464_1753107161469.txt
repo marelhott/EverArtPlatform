@@ -1,0 +1,189 @@
+import requests
+import os
+import sys
+import time
+
+try:
+    from termcolor import cprint, colored
+except ImportError:
+    def cprint(msg, color=None, **kwargs): print(msg)
+    def colored(msg, color=None, **kwargs): return msg
+
+EVERART_API_KEY = "everart-TVŮJ-API-KLÍČ"  # <- vlož sem svůj klíč
+BASE_URL = "https://api.everart.ai/v1"
+THUMBNAIL_DIR = "thumbnails"
+
+if not os.path.exists(THUMBNAIL_DIR):
+    os.makedirs(THUMBNAIL_DIR)
+
+session = requests.Session()
+session.headers.update({
+    "Authorization": f"Bearer {EVERART_API_KEY}",
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+})
+
+def get_models():
+    url = f"{BASE_URL}/models"
+    r = session.get(url)
+    if r.status_code != 200:
+        cprint(f"❌ Nelze načíst modely: {r.text}", "red")
+        return []
+    return r.json().get("models", [])
+
+def print_models(models):
+    if not models:
+        cprint("Žádné modely nebyly nalezeny.", "yellow")
+        return
+    cprint(f"\nNalezeno {len(models)} modelů:", "cyan")
+    for idx, m in enumerate(models, 1):
+        status = m["status"]
+        color = "green" if status == "READY" else "yellow" if status == "TRAINING" else "red"
+        print(f"\n{idx}. Název: {colored(m['name'], 'cyan')}")
+        print(f"   ID: {m['id']}")
+        print(f"   Status: {colored(status, color)}")
+        thumb = m.get("thumbnail_url")
+        if thumb:
+            ext = thumb.split(".")[-1].split("?")[0][:4]
+            fname = os.path.join(THUMBNAIL_DIR, f"{m['id']}.{ext}")
+            if not os.path.isfile(fname):
+                try:
+                    img = session.get(thumb)
+                    with open(fname, "wb") as f:
+                        f.write(img.content)
+                    print(f"   Náhled uložen jako: {fname}")
+                except Exception as e:
+                    cprint(f"   (Chyba stahování náhledu: {e})", "red")
+            else:
+                print(f"   Náhled uložen jako: {fname}")
+        else:
+            cprint("   Náhled není k dispozici.", "yellow")
+
+def upload_images(image_paths):
+    cprint("⏫ Nahrávám obrázky...", "cyan")
+    tokens = []
+    for path in image_paths:
+        if not os.path.isfile(path):
+            cprint(f"Soubor {path} neexistuje!", "red")
+            continue
+        filename = os.path.basename(path)
+        ext = filename.split('.')[-1].lower()
+        content_type = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
+        req_json = {"images": [{"filename": filename, "content_type": content_type}]}
+        r = session.post(f"{BASE_URL}/images/uploads", json=req_json)
+        if r.status_code != 200:
+            cprint(f"❌ Nelze získat upload URL pro {filename}: {r.text}", "red")
+            continue
+        u = r.json()["image_uploads"][0]
+        with open(path, "rb") as f:
+            put_headers = {"Content-Type": content_type}
+            put_resp = requests.put(u["upload_url"], data=f, headers=put_headers)
+            if put_resp.status_code not in [200, 201]:
+                cprint(f"❌ Upload {filename} selhal: {put_resp.text}", "red")
+                continue
+            tokens.append(u["upload_token"])
+            cprint(f"✅ {filename} nahrán (upload_token={u['upload_token']})", "green")
+    return tokens
+
+def create_model(name, subject, images):
+    cprint(f"\n🆕 Zakládám model '{name}' z {len(images)} obrázků...", "cyan")
+    tokens = upload_images(images)
+    if not tokens:
+        cprint("❌ Žádné obrázky nebyly úspěšně nahrány.", "red")
+        return None
+    req_json = {"name": name, "subject": subject, "image_upload_tokens": tokens}
+    r = session.post(f"{BASE_URL}/models", json=req_json)
+    if r.status_code != 200:
+        cprint(f"❌ Model se nepodařilo založit: {r.text}", "red")
+        return None
+    model = r.json()["model"]
+    cprint(f"✅ Nový model '{model['name']}' vytvořen! ID: {model['id']}", "green")
+    wait_for_ready(model["id"])
+    return model
+
+def wait_for_ready(model_id, timeout=900, interval=15):
+    t = 0
+    cprint(f"⏳ Čekám na dokončení trénování modelu {model_id}...", "yellow")
+    while t < timeout:
+        url = f"{BASE_URL}/models/{model_id}"
+        r = session.get(url)
+        status = r.json().get("model", {}).get("status")
+        if status == "READY":
+            cprint("✅ Model je READY!", "green")
+            return
+        elif status in ("FAILED", "CANCELED"):
+            cprint(f"❌ Model skončil se stavem {status}", "red")
+            return
+        else:
+            print(f"Status: {status} ({t}s/{timeout}s)")
+            time.sleep(interval)
+            t += interval
+    cprint("❌ Timeout při čekání na model.", "red")
+
+def apply_model(model_id, input_image, out_path="result.jpg", style_strength=0.6, width=512, height=512):
+    cprint(f"\n✨ Aplikuji model {model_id} na obrázek {input_image}...", "cyan")
+    tokens = upload_images([input_image])
+    if not tokens:
+        cprint("❌ Obrázek nebyl nahrán, končím.", "red")
+        return
+    req_json = {
+        "prompt": " ",
+        "type": "img2img",
+        "model_id": model_id,
+        "image_count": 1,
+        "width": width,
+        "height": height,
+        "style_strength": style_strength,
+        "image_upload_token": tokens[0]
+    }
+    r = session.post(f"{BASE_URL}/models/{model_id}/generations", json=req_json)
+    if r.status_code != 200:
+        cprint(f"❌ Generování selhalo: {r.text}", "red")
+        return
+    generations = r.json().get("generations", [])
+    if not generations:
+        cprint("❌ EverArt negenerovalo žádný výsledek.", "red")
+        return
+    img_url = generations[0].get("image_url")
+    cprint(f"✅ Výsledek: {img_url}", "green")
+    img = requests.get(img_url)
+    with open(out_path, "wb") as f:
+        f.write(img.content)
+    cprint(f"✅ Výsledek uložen jako {out_path}", "green")
+
+def main():
+    while True:
+        print("\n=== EverArt CLI ===")
+        print("1) Vypsat všechny modely")
+        print("2) Vytvořit nový model")
+        print("3) Použít model na obrázek (styl transfer)")
+        print("4) Konec")
+        choice = input("Zvol možnost (1-4): ").strip()
+        if choice == "1":
+            print_models(get_models())
+        elif choice == "2":
+            name = input("Název nového modelu: ").strip()
+            subject = input("Typ modelu ('STYLE', 'PERSON', 'OBJECT'): ").strip().upper()
+            images = input("Cesty k obrázkům pro trénink (oddělené čárkou): ").strip().split(",")
+            images = [i.strip() for i in images if i.strip()]
+            create_model(name, subject, images)
+        elif choice == "3":
+            model_id = input("ID modelu: ").strip()
+            img_path = input("Cesta ke vstupnímu obrázku: ").strip()
+            out = input("Výsledný soubor (enter pro 'result.jpg'): ").strip() or "result.jpg"
+            strength = input("Síla stylu (0.0–1.0, výchozí 0.6): ").strip()
+            try: strength = float(strength) if strength else 0.6
+            except: strength = 0.6
+            w = input("Šířka (výchozí 512): ").strip()
+            h = input("Výška (výchozí 512): ").strip()
+            try: w = int(w) if w else 512; h = int(h) if h else 512
+            except: w = h = 512
+            apply_model(model_id, img_path, out, strength, w, h)
+        elif choice == "4":
+            print("Ukončuji.")
+            break
+        else:
+            cprint("Neplatná volba.", "red")
+
+if __name__ == "__main__":
+    main()
