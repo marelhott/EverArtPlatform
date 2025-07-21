@@ -1,24 +1,22 @@
 import { useState, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Image, Trash2, Download, Wand2, Info } from "lucide-react";
+import { Image, Trash2, Download, Wand2, ChevronDown } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
+import ModelSelectorModal from "@/components/model-selector-modal";
+import type { Model } from "@shared/schema";
 
 const applyModelSchema = z.object({
   modelId: z.string().min(1, "Vyberte model"),
-  styleStrength: z.number().min(0).max(1),
-  width: z.number().min(256).max(2048),
-  height: z.number().min(256).max(2048)
+  styleStrength: z.number().min(0).max(1)
 });
 
 type ApplyModelForm = z.infer<typeof applyModelSchema>;
@@ -27,34 +25,27 @@ export default function ApplyModelTab() {
   const [inputImage, setInputImage] = useState<File | null>(null);
   const [inputImagePreview, setInputImagePreview] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [result, setResult] = useState<{ originalUrl: string; resultUrl: string } | null>(null);
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
     defaultValues: {
       modelId: "",
-      styleStrength: 0.6,
-      width: 512,
-      height: 512
+      styleStrength: 0.6
     }
   });
-
-  // Fetch available models
-  const { data: modelsData } = useQuery({
-    queryKey: ['/api/models'],
-    queryFn: everArtApi.getModels
-  });
-
-  const readyModels = modelsData?.models?.filter(model => model.status === "READY") || [];
 
   const applyModelMutation = useMutation({
     mutationFn: async (data: ApplyModelForm & { image: File }) => {
       const formData = new FormData();
       formData.append('image', data.image);
       formData.append('styleStrength', data.styleStrength.toString());
-      formData.append('width', data.width.toString());
-      formData.append('height', data.height.toString());
+      formData.append('width', '512');
+      formData.append('height', '512');
 
       return everArtApi.applyModel(data.modelId, formData);
     },
@@ -69,6 +60,7 @@ export default function ApplyModelTab() {
         resultUrl: data.resultUrl
       });
       setIsProcessing(false);
+      setProcessingProgress(0);
     },
     onError: (error) => {
       toast({
@@ -77,6 +69,7 @@ export default function ApplyModelTab() {
         variant: "destructive"
       });
       setIsProcessing(false);
+      setProcessingProgress(0);
     }
   });
 
@@ -114,6 +107,7 @@ export default function ApplyModelTab() {
     form.reset();
     removeInputImage();
     setResult(null);
+    setSelectedModel(null);
   };
 
   const downloadResult = async () => {
@@ -139,6 +133,11 @@ export default function ApplyModelTab() {
     }
   };
 
+  const handleModelSelect = (model: Model) => {
+    setSelectedModel(model);
+    form.setValue('modelId', model.everartId);
+  };
+
   const onSubmit = (data: ApplyModelForm) => {
     if (!inputImage) {
       toast({
@@ -149,7 +148,29 @@ export default function ApplyModelTab() {
       return;
     }
 
+    if (!selectedModel) {
+      toast({
+        title: "Chyba", 
+        description: "Vyberte model",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
+    setProcessingProgress(0);
+    
+    // Simulate progress during processing
+    const progressInterval = setInterval(() => {
+      setProcessingProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90; // Keep at 90% until actual completion
+        }
+        return prev + Math.random() * 15;
+      });
+    }, 3000);
+
     applyModelMutation.mutate({
       ...data,
       image: inputImage
@@ -174,24 +195,32 @@ export default function ApplyModelTab() {
       <Card>
         <CardContent className="p-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Model Selection */}
+            <div className="space-y-4">
               <div>
                 <Label>Vybrat model</Label>
-                <Select 
-                  onValueChange={(value) => form.setValue('modelId', value)}
-                  value={form.watch('modelId')}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowModelSelector(true)}
+                  className="w-full mt-2 justify-between"
                 >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Vyberte model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {readyModels.map((model) => (
-                      <SelectItem key={model.everartId} value={model.everartId}>
-                        {model.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {selectedModel ? (
+                    <div className="flex items-center space-x-3">
+                      {selectedModel.thumbnailUrl && (
+                        <img 
+                          src={selectedModel.thumbnailUrl} 
+                          alt={selectedModel.name}
+                          className="w-8 h-8 rounded object-cover"
+                        />
+                      )}
+                      <span>{selectedModel.name}</span>
+                    </div>
+                  ) : (
+                    "Vyberte model"
+                  )}
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
                 {form.formState.errors.modelId && (
                   <p className="text-sm text-red-600 mt-1">
                     {form.formState.errors.modelId.message}
@@ -199,6 +228,7 @@ export default function ApplyModelTab() {
                 )}
               </div>
 
+              {/* Style Strength */}
               <div>
                 <Label>
                   Síla stylu: {styleStrength.toFixed(1)}
@@ -220,157 +250,126 @@ export default function ApplyModelTab() {
               </div>
             </div>
 
+            {/* Two Column Layout for Images */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Input Image Column */}
               <div>
-                <Label htmlFor="width">Šířka (px)</Label>
-                <Input
-                  id="width"
-                  type="number"
-                  min={256}
-                  max={2048}
-                  step={64}
-                  {...form.register('width', { valueAsNumber: true })}
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label htmlFor="height">Výška (px)</Label>
-                <Input
-                  id="height"
-                  type="number"
-                  min={256}
-                  max={2048}
-                  step={64}
-                  {...form.register('height', { valueAsNumber: true })}
-                  className="mt-2"
-                />
-              </div>
-            </div>
-
-            {/* Input Image */}
-            <div>
-              <Label>Vstupní obrázek</Label>
-              <div 
-                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors mt-2"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleImageDrop}
-              >
-                {inputImagePreview ? (
-                  <div>
-                    <img 
-                      src={inputImagePreview} 
-                      alt="Input preview" 
-                      className="max-w-full max-h-64 mx-auto rounded-lg shadow-md mb-2"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={removeInputImage}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Odebrat obrázek
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <Image className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-lg font-medium mb-2">Přetáhněte obrázek nebo klikněte pro výběr</p>
-                    <p className="text-sm text-muted-foreground mb-4">Podporované formáty: JPG, PNG</p>
-                    <Button
-                      type="button"
-                      onClick={() => document.getElementById('inputImageInput')?.click()}
-                    >
-                      Vybrat obrázek
-                    </Button>
-                  </div>
-                )}
-                <input
-                  id="inputImageInput"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="flex items-center text-sm text-muted-foreground">
-                <Info className="mr-2 h-4 w-4" />
-                Zpracování může trvat několik minut
-              </div>
-              <div className="flex space-x-3">
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Resetovat
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isProcessing || applyModelMutation.isPending}
+                <Label className="mb-2 block">Vstupní obrázek</Label>
+                <div 
+                  className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors aspect-square"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleImageDrop}
                 >
-                  {isProcessing || applyModelMutation.isPending ? (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                      Zpracovávám...
-                    </>
+                  {inputImagePreview ? (
+                    <div className="h-full flex flex-col">
+                      <img 
+                        src={inputImagePreview} 
+                        alt="Input preview" 
+                        className="flex-1 w-full object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={removeInputImage}
+                        className="mt-2"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Odebrat
+                      </Button>
+                    </div>
                   ) : (
-                    "Aplikovat styl"
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <Image className="h-12 w-12 text-muted-foreground mb-3" />
+                      <p className="font-medium mb-2">Přetáhněte obrázek</p>
+                      <p className="text-sm text-muted-foreground mb-4">nebo</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => document.getElementById('inputImageInput')?.click()}
+                      >
+                        Vybrat soubor
+                      </Button>
+                    </div>
                   )}
-                </Button>
-              </div>
-            </div>
-          </form>
-
-          {/* Processing Progress */}
-          {isProcessing && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center mb-2">
-                <Wand2 className="mr-2 h-4 w-4 animate-spin text-primary" />
-                <span className="font-medium">Aplikuji styl na obrázek...</span>
-              </div>
-              <Progress value={100} className="animate-pulse" />
-            </div>
-          )}
-
-          {/* Result Display */}
-          {result && (
-            <div className="mt-6 p-4 bg-green-50 rounded-lg">
-              <h3 className="font-medium mb-4">Výsledek</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Původní obrázek</p>
-                  <div className="bg-muted rounded-lg aspect-square">
-                    <img 
-                      src={result.originalUrl} 
-                      alt="Original image" 
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  </div>
+                  <input
+                    id="inputImageInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Stylizovaný výsledek</p>
-                  <div className="bg-muted rounded-lg aspect-square">
+              </div>
+
+              {/* Result Image Column */}
+              <div>
+                <Label className="mb-2 block">Stylizovaný výsledek</Label>
+                <div className="border-2 border-muted-foreground/25 rounded-lg aspect-square flex items-center justify-center bg-muted">
+                  {result ? (
                     <img 
                       src={result.resultUrl} 
                       alt="Stylized result" 
                       className="w-full h-full object-cover rounded-lg"
                     />
-                  </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Wand2 className="h-12 w-12 mx-auto mb-2" />
+                      <p className="text-sm">Výsledek se zobrazí zde</p>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="mt-4 flex space-x-3">
-                <Button onClick={downloadResult}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Stáhnout výsledek
-                </Button>
-                <Button variant="outline" onClick={() => setResult(null)}>
-                  Zpracovat další
-                </Button>
-              </div>
             </div>
-          )}
+
+            {/* Apply Button and Progress */}
+            <div className="flex items-center space-x-4 pt-4 border-t">
+              <Button 
+                type="submit" 
+                disabled={isProcessing || applyModelMutation.isPending}
+                className="min-w-[140px]"
+              >
+                {isProcessing || applyModelMutation.isPending ? (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                    Aplikuji model
+                  </>
+                ) : (
+                  "Aplikovat model"
+                )}
+              </Button>
+              
+              {/* Progress Bar */}
+              {isProcessing && (
+                <div className="flex-1">
+                  <Progress value={processingProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Zpracovávám... {Math.round(processingProgress)}%
+                  </p>
+                </div>
+              )}
+              
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Resetovat
+              </Button>
+              
+              {result && (
+                <Button onClick={downloadResult} variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Stáhnout
+                </Button>
+              )}
+            </div>
+          </form>
         </CardContent>
       </Card>
+
+      {/* Model Selector Modal */}
+      <ModelSelectorModal
+        open={showModelSelector}
+        onOpenChange={setShowModelSelector}
+        onSelectModel={handleModelSelect}
+      />
     </div>
   );
 }

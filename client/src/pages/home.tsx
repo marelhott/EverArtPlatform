@@ -10,7 +10,7 @@ import ApiKeyModal from "@/components/api-key-modal";
 import { List, Plus, Wand2, Key, Wifi } from "lucide-react";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState("models");
+  const [activeTab, setActiveTab] = useState("apply");
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   return (
@@ -42,11 +42,11 @@ export default function Home() {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
                 <TabsList className="grid w-full max-w-md grid-cols-3 bg-transparent border-none p-0 h-auto">
                   <TabsTrigger 
-                    value="models" 
+                    value="apply"
                     className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent py-2 px-4 font-medium text-sm rounded-none bg-transparent"
                   >
-                    <List className="mr-2 h-4 w-4" />
-                    Všechny modely
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Použít model
                   </TabsTrigger>
                   <TabsTrigger 
                     value="create"
@@ -56,11 +56,11 @@ export default function Home() {
                     Vytvořit model
                   </TabsTrigger>
                   <TabsTrigger 
-                    value="apply"
+                    value="models" 
                     className="data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary border-b-2 border-transparent py-2 px-4 font-medium text-sm rounded-none bg-transparent"
                   >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Použít model
+                    <List className="mr-2 h-4 w-4" />
+                    Všechny modely
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -80,14 +80,14 @@ export default function Home() {
 
         {/* Tab Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsContent value="models" className="mt-0">
-            <ModelsTab />
+          <TabsContent value="apply" className="mt-0">
+            <ApplyModelTab />
           </TabsContent>
           <TabsContent value="create" className="mt-0">
             <CreateModelTab />
           </TabsContent>
-          <TabsContent value="apply" className="mt-0">
-            <ApplyModelTab />
+          <TabsContent value="models" className="mt-0">
+            <ModelsTab />
           </TabsContent>
         </Tabs>
       </div>
