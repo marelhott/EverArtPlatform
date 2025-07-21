@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
 import { Image, Trash2, Download, Wand2, Check } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
@@ -250,14 +251,14 @@ export default function ApplyModelTab() {
             {/* Settings */}
             <div className="space-y-6">
 
-              {/* Settings - Two separate boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Settings - Two separate boxes - 30% smaller */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl mx-auto">
                 {/* Style Strength Box */}
-                <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-2xl p-4 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
-                  <Label className="text-green-700 dark:text-green-300 font-medium">
+                <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-xl p-3 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
                     Síla stylu: {styleStrength.toFixed(1)}
                   </Label>
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Slider
                       value={[styleStrength]}
                       onValueChange={([value]) => form.setValue('styleStrength', value)}
@@ -266,7 +267,7 @@ export default function ApplyModelTab() {
                       step={0.1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-xs text-green-600 dark:text-green-400 mt-2">
+                    <div className="flex justify-between text-xs text-green-600 dark:text-green-400 mt-1">
                       <span>Slabý (0.0)</span>
                       <span>Silný (1.0)</span>
                     </div>
@@ -274,11 +275,11 @@ export default function ApplyModelTab() {
                 </div>
 
                 {/* Number of Images Box */}
-                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-2xl p-4 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
-                  <Label className="text-blue-700 dark:text-blue-300 font-medium">
+                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-blue-700 dark:text-blue-300 font-medium text-sm">
                     Počet obrázků: {numImages}
                   </Label>
-                  <div className="mt-3">
+                  <div className="mt-2">
                     <Slider
                       value={[numImages]}
                       onValueChange={([value]) => form.setValue('numImages', value)}
@@ -287,7 +288,7 @@ export default function ApplyModelTab() {
                       step={1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-2">
+                    <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-1">
                       <span>1 obrázek</span>
                       <span>4 obrázky</span>
                     </div>
@@ -321,7 +322,9 @@ export default function ApplyModelTab() {
                     <Wand2 className="mr-2 h-4 w-4 animate-spin text-primary" />
                     <span className="font-medium">Zpracovávám obrázek...</span>
                   </div>
-                  <Progress value={processingProgress} className="h-2" />
+                  <div className="flex justify-center">
+                    <Progress value={processingProgress} className="h-2 w-1/2" />
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1 text-center">
                     {Math.round(processingProgress)}% dokončeno
                   </p>
@@ -336,16 +339,17 @@ export default function ApplyModelTab() {
                 <div>
                   <Label className="mb-2 block text-center">Vstupní obrázek</Label>
                   <div 
-                    className="border-2 border-dashed border-border/30 rounded-2xl p-4 text-center hover:border-primary/50 transition-all aspect-square bg-gradient-to-br from-secondary/20 via-card to-accent/15 shadow-lg backdrop-blur-sm"
+                    className="border-2 border-dashed border-border/30 rounded-2xl p-4 text-center hover:border-primary/50 transition-all bg-gradient-to-br from-secondary/20 via-card to-accent/15 shadow-lg backdrop-blur-sm"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleImageDrop}
+                    style={{ aspectRatio: inputImagePreview ? 'auto' : '1' }}
                   >
                     {inputImagePreview ? (
-                      <div className="h-full flex flex-col">
+                      <div className="flex flex-col">
                         <img 
                           src={inputImagePreview} 
                           alt="Input preview" 
-                          className="flex-1 w-full object-cover rounded-lg shadow-sm"
+                          className="w-full object-contain rounded-lg shadow-sm max-h-96"
                         />
                         <Button
                           type="button"
@@ -359,7 +363,7 @@ export default function ApplyModelTab() {
                         </Button>
                       </div>
                     ) : (
-                      <div className="h-full flex flex-col items-center justify-center">
+                      <div className="h-full flex flex-col items-center justify-center aspect-square">
                         <Image className="h-8 w-8 text-muted-foreground mb-2" />
                         <p className="font-medium mb-1 text-xs">Přetáhněte obrázek</p>
                         <p className="text-xs text-muted-foreground mb-2">nebo</p>
@@ -386,7 +390,10 @@ export default function ApplyModelTab() {
                 {/* Result Image Column */}
                 <div>
                   <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
-                  <div className="border-2 border-border/30 rounded-2xl aspect-square flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm">
+                  <div 
+                    className="border-2 border-border/30 rounded-2xl p-4 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm"
+                    style={{ aspectRatio: result ? 'auto' : '1' }}
+                  >
                     {result ? (
                       <Dialog>
                         <DialogTrigger asChild>
@@ -396,12 +403,17 @@ export default function ApplyModelTab() {
                             className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                           />
                         </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-                          <img 
-                            src={result.resultUrl} 
-                            alt="Stylized result - enlarged" 
-                            className="w-full h-full object-contain rounded-lg"
-                          />
+                        <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
+                          <VisuallyHidden>
+                            <DialogTitle>Zvětšený obrázek</DialogTitle>
+                          </VisuallyHidden>
+                          <div className="flex justify-center items-center min-h-0">
+                            <img 
+                              src={result.resultUrl} 
+                              alt="Stylized result - enlarged" 
+                              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            />
+                          </div>
                         </DialogContent>
                       </Dialog>
                     ) : (

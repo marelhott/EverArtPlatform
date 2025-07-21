@@ -1,7 +1,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Wand2 } from "lucide-react";
 import type { Generation } from "@shared/schema";
@@ -68,13 +69,18 @@ export default function ModificationsTab() {
                         )}
                       </div>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+                    <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
+                      <VisuallyHidden>
+                        <DialogTitle>Zvětšený obrázek</DialogTitle>
+                      </VisuallyHidden>
                       {generation.outputImageUrl && (
-                        <img 
-                          src={generation.outputImageUrl} 
-                          alt="Vygenerovaný obrázek - zvětšený"
-                          className="w-full h-full object-contain rounded-lg"
-                        />
+                        <div className="flex justify-center items-center min-h-0">
+                          <img 
+                            src={generation.outputImageUrl} 
+                            alt="Vygenerovaný obrázek - zvětšený"
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                          />
+                        </div>
                       )}
                     </DialogContent>
                   </Dialog>
