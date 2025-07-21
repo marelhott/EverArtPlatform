@@ -14,6 +14,7 @@ import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
 import { Image, Trash2, Download, Wand2, Check } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
+import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
 import type { Model, Generation } from "@shared/schema";
 
 const applyModelSchema = z.object({
@@ -73,6 +74,18 @@ export default function ApplyModelTab() {
       });
       setIsProcessing(false);
       setProcessingProgress(0);
+      
+      // Save to localStorage
+      if (data.resultUrl && selectedModel) {
+        const localGeneration: LocalGeneration = {
+          id: Date.now().toString(),
+          outputImageUrl: data.resultUrl,
+          inputImageUrl: inputImagePreview,
+          modelId: selectedModel.everartId,
+          createdAt: new Date().toISOString()
+        };
+        localGenerationsStorage.saveGeneration(localGeneration);
+      }
     },
     onError: (error) => {
       toast({

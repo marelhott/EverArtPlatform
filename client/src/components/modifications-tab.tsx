@@ -1,41 +1,57 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Wand2 } from "lucide-react";
-import type { Generation } from "@shared/schema";
+import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
 
 export default function ModificationsTab() {
   const { toast } = useToast();
+  const [generations, setGenerations] = useState<LocalGeneration[]>([]);
 
-  // Fetch generations gallery
-  const { data: generationsData, refetch: refetchGenerations } = useQuery({
-    queryKey: ['/api/generations'],
-    staleTime: 30000
-  });
+  // Load generations from localStorage on mount
+  useEffect(() => {
+    const loadGenerations = () => {
+      const localGens = localGenerationsStorage.getGenerations();
+      setGenerations(localGens);
+    };
+    
+    loadGenerations();
+    
+    // Listen for storage changes from other tabs
+    const handleStorageChange = () => {
+      loadGenerations();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically for new generations
+    const interval = setInterval(loadGenerations, 2000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
-  const generations = generationsData?.generations || [];
-
-  const deleteGenerationMutation = useMutation({
-    mutationFn: (id: number) => 
-      fetch(`/api/generations/${id}`, { method: 'DELETE' }).then(res => res.json()),
-    onSuccess: () => {
-      refetchGenerations();
+  const deleteGeneration = (id: string) => {
+    try {
+      localGenerationsStorage.deleteGeneration(id);
+      setGenerations(prev => prev.filter(gen => gen.id !== id));
       toast({
         title: "Smazáno",
         description: "Obrázek byl smazán z galerie.",
       });
-    },
-    onError: () => {
+    } catch (error) {
       toast({
         title: "Chyba",
         description: "Při mazání obrázku došlo k chybě.",
         variant: "destructive",
       });
-    },
-  });
+    }
+  };
 
   return (
     <div>
@@ -51,7 +67,7 @@ export default function ModificationsTab() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {generations.map((generation: Generation) => (
+              {generations.map((generation: LocalGeneration) => (
                 <div key={generation.id} className="relative group">
                   <Dialog>
                     <DialogTrigger asChild>
@@ -92,7 +108,7 @@ export default function ModificationsTab() {
                     className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteGenerationMutation.mutate(generation.id);
+                      deleteGeneration(generation.id);
                     }}
                   >
                     <Trash2 className="h-3 w-3" />
