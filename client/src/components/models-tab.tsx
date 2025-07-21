@@ -100,7 +100,7 @@ export default function ModelsTab() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
               <Skeleton className="h-48 w-full rounded-t-lg" />
@@ -130,7 +130,7 @@ export default function ModelsTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {models.map((model) => (
             <Card key={model.id} className="hover:shadow-lg transition-shadow">
               <div className="aspect-video bg-muted">
@@ -183,6 +183,13 @@ export default function ModelsTab() {
           ))}
         </div>
       )}
+      
+      {/* White rectangle below models */}
+      <div className="mt-6 w-full bg-white rounded-2xl p-8 shadow-sm border border-border/20">
+        <div className="text-center text-muted-foreground">
+          <p className="text-sm">Zde se může zobrazit další obsah nebo informace</p>
+        </div>
+      </div>
     </div>
   );
 }
