@@ -174,8 +174,8 @@ export default function ApplyModelTab() {
     }
   };
 
-  const createApplyModelMutation = (instanceId: string) => useMutation({
-    mutationFn: async (data: ApplyModelForm & { image: File }) => {
+  const applyModelMutation = useMutation({
+    mutationFn: async (data: ApplyModelForm & { image: File; instanceId: string }) => {
       const formData = new FormData();
       formData.append('image', data.image);
       formData.append('styleStrength', data.styleStrength.toString());
@@ -183,9 +183,12 @@ export default function ApplyModelTab() {
       formData.append('height', '512');
       formData.append('numImages', data.numImages.toString());
 
-      return everArtApi.applyModel(data.modelId, formData);
+      return { 
+        result: await everArtApi.applyModel(data.modelId, formData),
+        instanceId: data.instanceId
+      };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ result: data, instanceId }) => {
       toast({
         title: "Úspěch",
         description: "Styl byl úspěšně aplikován na obrázek"
@@ -260,14 +263,14 @@ export default function ApplyModelTab() {
         };
       }));
     },
-    onError: (error) => {
+    onError: (error: any, variables) => {
       toast({
         title: "Chyba",
         description: error.message || "Nepodařilo se aplikovat styl",
         variant: "destructive"
       });
       setInstances(prev => prev.map(instance => 
-        instance.id === instanceId 
+        instance.id === variables.instanceId
           ? { ...instance, isProcessing: false, processingProgress: 0 }
           : instance
       ));
@@ -307,21 +310,24 @@ export default function ApplyModelTab() {
     // Simulate progress during processing
     const progressInterval = setInterval(() => {
       setInstances(prev => prev.map(inst => {
-        if (inst.id === instanceId) {
+        if (inst.id === instanceId && inst.isProcessing) {
           const newProgress = inst.processingProgress >= 90 
             ? 90 
             : inst.processingProgress + Math.random() * 15;
-          if (newProgress >= 90) clearInterval(progressInterval);
+          if (newProgress >= 90) {
+            clearInterval(progressInterval);
+            return { ...inst, processingProgress: 90 };
+          }
           return { ...inst, processingProgress: newProgress };
         }
         return inst;
       }));
     }, 3000);
 
-    const mutation = createApplyModelMutation(instanceId);
-    mutation.mutate({
+    applyModelMutation.mutate({
       ...data,
-      image: instance.inputImage
+      image: instance.inputImage,
+      instanceId
     });
   };
 
