@@ -188,33 +188,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const generations = generationResponse.data.generations || [];
       if (generations.length > 0) {
-        const generationId = generations[0].id;
-        
-        // Poll for completion
+        // Poll for completion of ALL generations
         const maxAttempts = 60; // 5 minutes max
         let attempts = 0;
+        const completedGenerations: Array<{id: string, image_url?: string, failed?: boolean}> = [];
         
-        while (attempts < maxAttempts) {
+        while (attempts < maxAttempts && completedGenerations.length < generations.length) {
           try {
-            const statusResponse = await apiClient.get(`/generations/${generationId}`);
-            const genStatus = statusResponse.data.generation;
+            // Check status of all generations
+            const statusPromises = generations.map((gen: any) => 
+              apiClient.get(`/generations/${gen.id}`).catch(err => ({ error: err, id: gen.id }))
+            );
             
-            console.log(`Generation ${generationId} status: ${genStatus.status}`);
+            const statusResponses = await Promise.all(statusPromises);
             
-            if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
-              // Update generation with result
+            for (let i = 0; i < statusResponses.length; i++) {
+              const response = statusResponses[i];
+              if (response.error) continue;
+              
+              const genStatus = response.data.generation;
+              console.log(`Generation ${genStatus.id} status: ${genStatus.status}`);
+              
+              if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
+                // Check if already added
+                if (!completedGenerations.find(cg => cg.id === genStatus.id)) {
+                  completedGenerations.push({
+                    id: genStatus.id,
+                    image_url: genStatus.image_url
+                  });
+                }
+              } else if (genStatus.status === 'FAILED') {
+                // Mark as failed but continue with others
+                if (!completedGenerations.find(cg => cg.id === genStatus.id)) {
+                  completedGenerations.push({
+                    id: genStatus.id,
+                    image_url: null,
+                    failed: true
+                  });
+                }
+              }
+            }
+            
+            // If we have at least one successful generation, return results
+            if (completedGenerations.some(cg => cg.image_url && !cg.failed)) {
+              const successfulGenerations = completedGenerations.filter(cg => cg.image_url && !cg.failed);
+              
+              // Update our local generation with the first successful result
               const updatedGeneration = await storage.updateGeneration(generation.id, {
-                outputImageUrl: genStatus.image_url,
+                outputImageUrl: successfulGenerations[0].image_url,
                 status: "COMPLETED"
               });
               
               return res.json({ 
+                generations: successfulGenerations,
                 generation: updatedGeneration,
-                resultUrl: genStatus.image_url 
+                resultUrl: successfulGenerations[0].image_url 
               });
-            } else if (genStatus.status === 'FAILED') {
-              await storage.updateGeneration(generation.id, { status: "FAILED" });
-              return res.status(500).json({ message: "Generování selhalo" });
             }
             
             // Wait 5 seconds before next check

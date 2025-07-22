@@ -26,6 +26,33 @@ const applyModelSchema = z.object({
 
 type ApplyModelForm = z.infer<typeof applyModelSchema>;
 
+interface ApplyModelTabState {
+  inputImagePreview: string;
+  results: { originalUrl: string; resultUrl: string }[];
+  selectedResultIndex: number;
+  selectedModelId: string | null;
+}
+
+const APPLY_MODEL_STATE_KEY = 'apply-model-state';
+
+const saveApplyModelState = (state: ApplyModelTabState) => {
+  try {
+    localStorage.setItem(APPLY_MODEL_STATE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn('Failed to save apply model state:', error);
+  }
+};
+
+const loadApplyModelState = (): ApplyModelTabState | null => {
+  try {
+    const saved = localStorage.getItem(APPLY_MODEL_STATE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.warn('Failed to load apply model state:', error);
+    return null;
+  }
+};
+
 export default function ApplyModelTab() {
   const [inputImage, setInputImage] = useState<File | null>(null);
   const [inputImagePreview, setInputImagePreview] = useState<string>("");
@@ -71,7 +98,16 @@ export default function ApplyModelTab() {
       });
       
       // Handle multiple results if available
-      if (data.generation && data.generation.outputImageUrl) {
+      if (data.generations && data.generations.length > 0) {
+        const newResults = data.generations
+          .filter((gen: any) => gen.image_url && !gen.failed)
+          .map((gen: any) => ({
+            originalUrl: inputImagePreview,
+            resultUrl: gen.image_url
+          }));
+        setResults(newResults);
+        setSelectedResultIndex(0);
+      } else if (data.generation && data.generation.outputImageUrl) {
         setResults([{
           originalUrl: inputImagePreview,
           resultUrl: data.generation.outputImageUrl
@@ -89,7 +125,20 @@ export default function ApplyModelTab() {
       
       // Save to localStorage - save all generated images
       if (selectedModel) {
-        if (data.generation && data.generation.outputImageUrl) {
+        if (data.generations && data.generations.length > 0) {
+          data.generations.forEach((gen: any, index: number) => {
+            if (gen.image_url && !gen.failed) {
+              const localGeneration: LocalGeneration = {
+                id: `${Date.now()}-${index}`,
+                outputImageUrl: gen.image_url,
+                inputImageUrl: inputImagePreview,
+                modelId: selectedModel.everartId,
+                createdAt: new Date().toISOString()
+              };
+              localGenerationsStorage.saveGeneration(localGeneration);
+            }
+          });
+        } else if (data.generation && data.generation.outputImageUrl) {
           const localGeneration: LocalGeneration = {
             id: Date.now().toString(),
             outputImageUrl: data.generation.outputImageUrl,
@@ -227,6 +276,35 @@ export default function ApplyModelTab() {
 
   const styleStrength = form.watch('styleStrength');
   const numImages = form.watch('numImages');
+
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = loadApplyModelState();
+    if (savedState) {
+      setInputImagePreview(savedState.inputImagePreview);
+      setResults(savedState.results);
+      setSelectedResultIndex(savedState.selectedResultIndex);
+      if (savedState.selectedModelId && readyModels.length > 0) {
+        const model = readyModels.find(m => m.everartId === savedState.selectedModelId);
+        if (model) {
+          setSelectedModel(model);
+          form.setValue('modelId', model.everartId);
+        }
+      }
+    }
+  }, [readyModels]);
+
+  // Save state whenever key values change
+  useEffect(() => {
+    if (inputImagePreview || results.length > 0) {
+      saveApplyModelState({
+        inputImagePreview,
+        results,
+        selectedResultIndex,
+        selectedModelId: selectedModel?.everartId || null
+      });
+    }
+  }, [inputImagePreview, results, selectedResultIndex, selectedModel]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
@@ -425,61 +503,64 @@ export default function ApplyModelTab() {
                 </div>
 
                 {/* Result Image Column */}
-                <div>
-                  <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
-                  <div 
-                    className="border-2 border-border/30 rounded-2xl p-4 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm"
-                    style={{ aspectRatio: results.length > 0 ? 'auto' : '1' }}
-                  >
-                    {results.length > 0 && results[selectedResultIndex] ? (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <img 
-                            src={results[selectedResultIndex].resultUrl} 
-                            alt="Stylized result" 
-                            className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                          />
-                        </DialogTrigger>
-                        <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
-                          <VisuallyHidden>
-                            <DialogTitle>Zvětšený obrázek</DialogTitle>
-                          </VisuallyHidden>
-                          <div className="flex justify-center items-center min-h-0">
+                <div className="flex space-x-4">
+                  {/* Main Result Image */}
+                  <div className="flex-1">
+                    <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
+                    <div 
+                      className="border-2 border-border/30 rounded-2xl p-4 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm"
+                      style={{ aspectRatio: results.length > 0 ? 'auto' : '1' }}
+                    >
+                      {results.length > 0 && results[selectedResultIndex] ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
                             <img 
                               src={results[selectedResultIndex].resultUrl} 
-                              alt="Stylized result - enlarged" 
-                              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                              alt="Stylized result" 
+                              className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                             />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <Wand2 className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-xs">Výsledek se zobrazí zde</p>
-                      </div>
-                    )}
+                          </DialogTrigger>
+                          <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
+                            <VisuallyHidden>
+                              <DialogTitle>Zvětšený obrázek</DialogTitle>
+                            </VisuallyHidden>
+                            <div className="flex justify-center items-center min-h-0">
+                              <img 
+                                src={results[selectedResultIndex].resultUrl} 
+                                alt="Stylized result - enlarged" 
+                                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : (
+                        <div className="text-center text-muted-foreground">
+                          <Wand2 className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-xs">Výsledek se zobrazí zde</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Thumbnail Gallery */}
+                  {/* Vertical Thumbnail Gallery */}
                   {results.length > 1 && (
-                    <div className="mt-4">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Výsledky ({results.length})</Label>
-                      <div className="flex space-x-2 overflow-x-auto pb-2">
+                    <div className="w-20">
+                      <Label className="text-xs text-muted-foreground mb-2 block text-center">Verze</Label>
+                      <div className="flex flex-col space-y-2 max-h-96 overflow-y-auto">
                         {results.map((result, index) => (
                           <button
                             key={index}
                             onClick={() => setSelectedResultIndex(index)}
                             className={cn(
-                              "flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors",
+                              "w-18 h-18 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0",
                               selectedResultIndex === index 
-                                ? "border-primary shadow-md" 
+                                ? "border-primary shadow-md ring-2 ring-primary/30" 
                                 : "border-border/30 hover:border-primary/50"
                             )}
                           >
                             <img 
                               src={result.resultUrl}
-                              alt={`Result ${index + 1}`}
+                              alt={`Verze ${index + 1}`}
                               className="w-full h-full object-cover"
                             />
                           </button>
