@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { Wand2, Upload, X, Download, Plus, Trash2, Check } from "lucide-react";
+import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -75,6 +75,7 @@ export default function ApplyModelTab() {
     }
   ]);
   const [globalSelectedModel, setGlobalSelectedModel] = useState<Model | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch available models
@@ -349,19 +350,18 @@ export default function ApplyModelTab() {
     <div>
       {/* Model Gallery */}
       <div className="mb-6">
-        <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-18 xl:grid-cols-22 gap-0">
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
           {readyModels.map((model: Model) => (
             <div
               key={model.id}
               onClick={() => handleModelSelect(model)}
-              className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-1 ${
+              className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-2 ${
                 globalSelectedModel?.id === model.id
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
-              style={{ width: '62px', height: '62px' }}
             >
-              <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden rounded-md">
+              <div className="w-full aspect-square bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden rounded-md mb-2">
                 {model.thumbnailUrl ? (
                   <img 
                     src={model.thumbnailUrl} 
@@ -372,10 +372,14 @@ export default function ApplyModelTab() {
                   <Wand2 className="h-6 w-6 text-muted-foreground" />
                 )}
                 {globalSelectedModel?.id === model.id && (
-                  <div className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground rounded-full p-0.5">
-                    <Check className="h-2 w-2" />
+                  <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
+                    <Check className="h-3 w-3" />
                   </div>
                 )}
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-medium text-foreground truncate">{model.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{model.subject}</p>
               </div>
             </div>
           ))}
@@ -516,13 +520,7 @@ export default function ApplyModelTab() {
                                   src={instance.results[i].resultUrl}
                                   alt={`Result ${i + 1}`}
                                   className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                                  onClick={() => setInstances(prev => 
-                                    prev.map(inst => 
-                                      inst.id === instance.id 
-                                        ? { ...inst, selectedResultIndex: i }
-                                        : inst
-                                    )
-                                  )}
+                                  onClick={() => setEnlargedImage(instance.results[i].resultUrl)}
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
@@ -535,14 +533,24 @@ export default function ApplyModelTab() {
                               )}
                             </div>
                             {instance.results[i] && (
-                              <Button
-                                type="button"
-                                onClick={() => downloadImage(instance.results[i].resultUrl, `result-${Date.now()}-${i + 1}.png`)}
-                                className="absolute top-2 right-2 h-6 w-6 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
-                                size="sm"
-                              >
-                                <Download className="h-3 w-3" />
-                              </Button>
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                <Button
+                                  type="button"
+                                  onClick={() => setEnlargedImage(instance.results[i].resultUrl)}
+                                  className="h-6 w-6 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+                                  size="sm"
+                                >
+                                  <ZoomIn className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  onClick={() => downloadImage(instance.results[i].resultUrl, `result-${Date.now()}-${i + 1}.png`)}
+                                  className="h-6 w-6 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+                                  size="sm"
+                                >
+                                  <Download className="h-3 w-3" />
+                                </Button>
+                              </div>
                             )}
                           </div>
                         ))}
@@ -587,6 +595,37 @@ export default function ApplyModelTab() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Image Enlargement Modal */}
+      {enlargedImage && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-full">
+            <img 
+              src={enlargedImage}
+              alt="Enlarged result"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <Button
+              onClick={() => setEnlargedImage(null)}
+              className="absolute top-4 right-4 h-10 w-10 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+              size="sm"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={() => downloadImage(enlargedImage, `enlarged-result-${Date.now()}.png`)}
+              className="absolute top-4 left-4 h-10 w-10 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+              size="sm"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
