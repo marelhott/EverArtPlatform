@@ -412,7 +412,7 @@ export default function ApplyModelTab() {
               </div>
               <div className="text-center">
                 <p className="text-xs font-medium text-foreground truncate">{model.name.replace(/\bstyle\b/gi, '').trim()}</p>
-                <p className="text-xs text-muted-foreground truncate">{model.subject}</p>
+                <p className="text-xs text-muted-foreground truncate">{model.subject.replace(/\bstyle\b/gi, '').trim()}</p>
               </div>
             </div>
           ))}
