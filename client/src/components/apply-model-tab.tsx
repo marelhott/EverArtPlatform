@@ -241,7 +241,7 @@ export default function ApplyModelTab() {
     <div>
       {/* Model Gallery */}
       <div className="mb-6">
-        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-14 xl:grid-cols-18 gap-2">
+        <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-18 xl:grid-cols-22 gap-0.5">
           {readyModels.map((model) => (
             <div
               key={model.id}
@@ -251,7 +251,7 @@ export default function ApplyModelTab() {
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
-              style={{ width: '70px', height: '70px' }}
+              style={{ width: '50px', height: '50px' }}
             >
               <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center relative overflow-hidden rounded-md">
                 {model.thumbnailUrl ? (
