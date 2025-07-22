@@ -502,14 +502,14 @@ export default function ApplyModelTab() {
                 </div>
               </div>
 
-              {/* Results Grid */}
+              {/* Results Row */}
               <div className="flex-1">
                 <Label className="mb-2 block text-center">Stylizované výsledky</Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="flex gap-3">
                   {[0, 1, 2, 3].map((index) => (
                     <div
                       key={index}
-                      className="border-2 border-border/30 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm aspect-square"
+                      className="flex-1 border-2 border-border/30 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm aspect-square"
                     >
                       {results[index] ? (
                         <Dialog>
