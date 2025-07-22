@@ -113,9 +113,24 @@ The application uses PostgreSQL with three main tables:
 - **Build Process**: Confirmed ESBuild compilation outputs to dist/index.js as expected
 - **TypeScript Fixes**: Resolved type errors in server/routes.ts for better deployment compatibility
 
+### Model Management Enhancements
+- **Delete Functionality**: Added delete button (trash icon) to model thumbnails on homepage
+- **Confirmation Dialog**: Implemented user confirmation before model deletion
+- **API Integration**: DELETE endpoints for both EverArt API and local storage cleanup
+
+### Cloudinary Integration Completed
+- **Cloud Storage**: Integrated Cloudinary for automatic image uploads
+- **API Configuration**: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET configured
+- **Automatic Upload**: Generated images automatically uploaded to Cloudinary CDN
+- **Fallback Handling**: Graceful fallback to original URLs if Cloudinary upload fails
+- **Storage Structure**: Images organized in `everart-generations/` folder
+
 ### Environment Variables Required for Production
 1. **SESSION_SECRET** - Required for secure session management in production
 2. **EVERART_API_KEY** - Required for AI image processing (already configured)
-3. **NODE_ENV** - Set to "production" for deployment (or REPLIT_DEPLOYMENT will be detected)
+3. **CLOUDINARY_CLOUD_NAME** - Cloud storage configuration (configured)
+4. **CLOUDINARY_API_KEY** - Cloud storage API access (configured)
+5. **CLOUDINARY_API_SECRET** - Cloud storage authentication (configured)
+6. **NODE_ENV** - Set to "production" for deployment (or REPLIT_DEPLOYMENT will be detected)
 
-The application now properly handles production deployment with secure session management and correct environment detection.
+The application now properly handles production deployment with secure session management, correct environment detection, and cloud-based image storage.
