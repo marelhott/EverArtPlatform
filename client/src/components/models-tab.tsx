@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Download, Bot, Wand2 } from "lucide-react";
+import { RefreshCw, Download, Bot, Wand2, Trash2 } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ModelsTab() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
   const { 
     data, 
     isLoading, 
@@ -18,6 +20,32 @@ export default function ModelsTab() {
     queryKey: ['/api/models'],
     queryFn: everArtApi.getModels,
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const deleteModelMutation = useMutation({
+    mutationFn: async (modelId: string) => {
+      const response = await fetch(`/api/models/${modelId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete model');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/models'] });
+      toast({
+        title: "Model smazán",
+        description: "Model byl úspěšně odstraněn"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se smazat model",
+        variant: "destructive"
+      });
+    }
   });
 
   const models = data?.models || [];
@@ -67,6 +95,12 @@ export default function ModelsTab() {
         description: "Nepodařilo se stáhnout náhled",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDeleteModel = (modelId: string, modelName: string) => {
+    if (confirm(`Opravdu chcete smazat model "${modelName}"? Tato akce je nevratná.`)) {
+      deleteModelMutation.mutate(modelId);
     }
   };
 
@@ -159,7 +193,7 @@ export default function ModelsTab() {
                 <p className="text-xs text-muted-foreground">
                   Typ: {model.subject}
                 </p>
-                <div className="mt-4 flex space-x-2">
+                <div className="mt-4 flex space-x-1">
                   <Button 
                     size="sm" 
                     className="flex-1"
@@ -176,6 +210,15 @@ export default function ModelsTab() {
                     disabled={!model.thumbnailUrl}
                   >
                     <Download className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleDeleteModel(model.everartId, model.name)}
+                    disabled={deleteModelMutation.isPending}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>

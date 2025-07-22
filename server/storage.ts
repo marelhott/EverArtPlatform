@@ -12,6 +12,7 @@ export interface IStorage {
   getModelByEverartId(everartId: string): Promise<Model | undefined>;
   createModel(model: InsertModel): Promise<Model>;
   updateModelStatus(everartId: string, status: string, thumbnailUrl?: string): Promise<Model | undefined>;
+  deleteModel(everartId: string): Promise<boolean>;
   
   // Generation methods
   getAllGenerations(): Promise<Generation[]>;
@@ -87,6 +88,14 @@ export class MemStorage implements IStorage {
     return undefined;
   }
 
+  async deleteModel(everartId: string): Promise<boolean> {
+    const model = await this.getModelByEverartId(everartId);
+    if (model) {
+      return this.models.delete(model.id);
+    }
+    return false;
+  }
+
   async getAllGenerations(): Promise<Generation[]> {
     return Array.from(this.generations.values());
   }
@@ -98,7 +107,10 @@ export class MemStorage implements IStorage {
   async createGeneration(insertGeneration: InsertGeneration): Promise<Generation> {
     const id = this.currentGenerationId++;
     const generation: Generation = { 
-      ...insertGeneration, 
+      ...insertGeneration,
+      styleStrength: insertGeneration.styleStrength ?? null,
+      width: insertGeneration.width ?? null,
+      height: insertGeneration.height ?? null,
       id, 
       createdAt: new Date(),
       outputImageUrl: null

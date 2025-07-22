@@ -6,6 +6,7 @@ import { z } from "zod";
 import multer from "multer";
 import axios from "axios";
 import FormData from "form-data";
+import { CloudinaryService } from "./cloudinary";
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -26,6 +27,22 @@ const apiClient = axios.create({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Get system info
+  app.get("/api/info", async (req, res) => {
+    res.json({
+      cloudinary: {
+        configured: CloudinaryService.isConfigured(),
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Not set',
+        apiKey: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Not set',
+        apiSecret: process.env.CLOUDINARY_API_SECRET ? 'Set' : 'Not set'
+      },
+      everart: {
+        configured: !!EVERART_API_KEY,
+        key: EVERART_API_KEY ? 'Set' : 'Not set'
+      }
+    });
+  });
+
   // Get all models from EverArt API
   app.get("/api/models", async (req, res) => {
     try {
@@ -237,16 +254,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const successfulGenerations = completedGenerations.filter(cg => cg.image_url && !cg.failed);
               
               if (successfulGenerations.length > 0) {
-                // Update our local generation with the first successful result
+                // Upload the first successful generation to Cloudinary if configured
+                let finalImageUrl = successfulGenerations[0].image_url;
+                
+                if (CloudinaryService.isConfigured()) {
+                  try {
+                    const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                      successfulGenerations[0].image_url,
+                      'everart-generations'
+                    );
+                    finalImageUrl = cloudinaryResult.secure_url;
+                    console.log(`Image uploaded to Cloudinary: ${finalImageUrl}`);
+                  } catch (cloudinaryError) {
+                    console.warn('Failed to upload to Cloudinary, using original URL:', cloudinaryError);
+                    // Continue with original URL if Cloudinary fails
+                  }
+                } else {
+                  console.log('Cloudinary not configured, using original EverArt URL');
+                }
+
+                // Update our local generation with the final result URL
                 const updatedGeneration = await storage.updateGeneration(generation.id, {
-                  outputImageUrl: successfulGenerations[0].image_url,
+                  outputImageUrl: finalImageUrl,
                   status: "COMPLETED"
                 });
                 
                 return res.json({ 
                   generations: successfulGenerations,
                   generation: updatedGeneration,
-                  resultUrl: successfulGenerations[0].image_url 
+                  resultUrl: finalImageUrl 
                 });
               } else {
                 // All failed
@@ -293,6 +329,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching generations:", error);
       res.status(500).json({ message: "Nelze načíst generování" });
+    }
+  });
+
+  // Delete model
+  app.delete("/api/models/:everartId", async (req, res) => {
+    try {
+      const { everartId } = req.params;
+      
+      // First try to delete from EverArt API
+      try {
+        await apiClient.delete(`/models/${everartId}`);
+        console.log(`Model ${everartId} deleted from EverArt API`);
+      } catch (apiError) {
+        console.warn(`Failed to delete model from EverArt API: ${everartId}`, apiError);
+        // Continue with local deletion even if API deletion fails
+      }
+      
+      // Delete from local storage
+      await storage.deleteModel(everartId);
+      
+      res.json({ success: true, message: "Model smazán" });
+    } catch (error) {
+      console.error("Error deleting model:", error);
+      res.status(500).json({ message: "Nepodařilo se smazat model" });
     }
   });
 
