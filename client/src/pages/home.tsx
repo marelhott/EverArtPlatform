@@ -82,23 +82,6 @@ export default function Home() {
         </Tabs>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-card border-t border-border mt-16">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              <span>EverArt AI Webová Aplikace</span>
-              <span className="mx-2">•</span>
-              <span>Verze 1.0</span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <a href="#" className="text-sm text-muted-foreground hover:text-primary">Dokumentace</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-primary">Podpora</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-
       {/* API Key Modal */}
       <ApiKeyModal 
         open={showApiKeyModal}
