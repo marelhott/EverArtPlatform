@@ -229,21 +229,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // If we have at least one successful generation, return results
-            if (completedGenerations.some(cg => cg.image_url && !cg.failed)) {
+            // If all generations are complete (successful or failed), return results
+            const totalExpected = generations.length;
+            const totalCompleted = completedGenerations.length;
+            
+            if (totalCompleted >= totalExpected) {
               const successfulGenerations = completedGenerations.filter(cg => cg.image_url && !cg.failed);
               
-              // Update our local generation with the first successful result
-              const updatedGeneration = await storage.updateGeneration(generation.id, {
-                outputImageUrl: successfulGenerations[0].image_url,
-                status: "COMPLETED"
-              });
-              
-              return res.json({ 
-                generations: successfulGenerations,
-                generation: updatedGeneration,
-                resultUrl: successfulGenerations[0].image_url 
-              });
+              if (successfulGenerations.length > 0) {
+                // Update our local generation with the first successful result
+                const updatedGeneration = await storage.updateGeneration(generation.id, {
+                  outputImageUrl: successfulGenerations[0].image_url,
+                  status: "COMPLETED"
+                });
+                
+                return res.json({ 
+                  generations: successfulGenerations,
+                  generation: updatedGeneration,
+                  resultUrl: successfulGenerations[0].image_url 
+                });
+              } else {
+                // All failed
+                await storage.updateGeneration(generation.id, { status: "FAILED" });
+                return res.status(500).json({ message: "Všechna generování selhala" });
+              }
             }
             
             // Wait 5 seconds before next check

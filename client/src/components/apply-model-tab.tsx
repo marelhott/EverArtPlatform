@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
-import { Image, Trash2, Download, Wand2, Check } from "lucide-react";
+import { Image, Trash2, Download, Wand2, Check, X, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
@@ -76,7 +76,7 @@ export default function ApplyModelTab() {
     defaultValues: {
       modelId: "",
       styleStrength: 0.6,
-      numImages: 1
+      numImages: 4
     }
   });
 
@@ -447,76 +447,76 @@ export default function ApplyModelTab() {
               )}
             </div>
 
-            {/* Two Column Layout for Images - 30% larger */}
-            <div className="flex justify-center">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl w-full">
-                {/* Input Image Column */}
-                <div>
-                  <Label className="mb-2 block text-center">Vstupní obrázek</Label>
-                  <div 
-                    className="border-2 border-dashed border-border/30 rounded-2xl p-4 text-center hover:border-primary/50 transition-all bg-gradient-to-br from-secondary/20 via-card to-accent/15 shadow-lg backdrop-blur-sm"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleImageDrop}
-                    style={{ aspectRatio: inputImagePreview ? 'auto' : '1' }}
-                  >
-                    {inputImagePreview ? (
-                      <div className="flex flex-col">
-                        <img 
-                          src={inputImagePreview} 
-                          alt="Input preview" 
-                          className="w-full object-contain rounded-lg shadow-sm max-h-96"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={removeInputImage}
-                          className="mt-2"
-                        >
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          Odebrat
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center aspect-square">
-                        <Image className="h-8 w-8 text-muted-foreground mb-2" />
-                        <p className="font-medium mb-1 text-xs">Přetáhněte obrázek</p>
-                        <p className="text-xs text-muted-foreground mb-2">nebo</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => document.getElementById('inputImageInput')?.click()}
-                          className="text-xs px-2 py-1"
-                        >
-                          Vybrat soubor
-                        </Button>
-                      </div>
-                    )}
-                    <input
-                      id="inputImageInput"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageSelect}
-                      className="hidden"
-                    />
-                  </div>
+            {/* New Layout: Small Input + 4 Large Results Grid */}
+            <div className="flex gap-6 mt-6">
+              {/* Small Input Image Preview */}
+              <div className="w-48 flex-shrink-0">
+                <Label className="mb-2 block text-center text-sm">Vstupní obrázek</Label>
+                <div 
+                  className="border-2 border-dashed border-border/50 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-muted/30 via-card to-accent/10 hover:border-border transition-colors aspect-square"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleImageDrop}
+                >
+                  {inputImagePreview ? (
+                    <div className="relative w-full h-full">
+                      <img 
+                        src={inputImagePreview} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover rounded-lg shadow-sm"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setInputImage(null);
+                          setInputImagePreview("");
+                          setResults([]);
+                        }}
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0 hover:bg-destructive/90 hover:text-destructive-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground w-full">
+                      <ImageIcon className="h-8 w-8 mx-auto mb-2" />
+                      <p className="text-xs mb-2">Přetáhněte obrázek</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => document.getElementById('inputImageInput')?.click()}
+                        className="text-xs px-2 py-1"
+                      >
+                        Vybrat soubor
+                      </Button>
+                    </div>
+                  )}
+                  <input
+                    id="inputImageInput"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
                 </div>
+              </div>
 
-                {/* Result Image Column */}
-                <div className="flex space-x-4">
-                  {/* Main Result Image */}
-                  <div className="flex-1">
-                    <Label className="mb-2 block text-center">Stylizovaný výsledek</Label>
-                    <div 
-                      className="border-2 border-border/30 rounded-2xl p-4 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm"
-                      style={{ aspectRatio: results.length > 0 ? 'auto' : '1' }}
+              {/* Results Grid */}
+              <div className="flex-1">
+                <Label className="mb-2 block text-center">Stylizované výsledky</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  {[0, 1, 2, 3].map((index) => (
+                    <div
+                      key={index}
+                      className="border-2 border-border/30 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm aspect-square"
                     >
-                      {results.length > 0 && results[selectedResultIndex] ? (
+                      {results[index] ? (
                         <Dialog>
                           <DialogTrigger asChild>
                             <img 
-                              src={results[selectedResultIndex].resultUrl} 
-                              alt="Stylized result" 
+                              src={results[index].resultUrl} 
+                              alt={`Stylized result ${index + 1}`} 
                               className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                             />
                           </DialogTrigger>
@@ -526,7 +526,7 @@ export default function ApplyModelTab() {
                             </VisuallyHidden>
                             <div className="flex justify-center items-center min-h-0">
                               <img 
-                                src={results[selectedResultIndex].resultUrl} 
+                                src={results[index].resultUrl} 
                                 alt="Stylized result - enlarged" 
                                 className="max-w-full max-h-[90vh] object-contain rounded-lg"
                               />
@@ -535,39 +535,12 @@ export default function ApplyModelTab() {
                         </Dialog>
                       ) : (
                         <div className="text-center text-muted-foreground">
-                          <Wand2 className="h-8 w-8 mx-auto mb-2" />
-                          <p className="text-xs">Výsledek se zobrazí zde</p>
+                          <Wand2 className="h-6 w-6 mx-auto mb-1" />
+                          <p className="text-xs">Výsledek {index + 1}</p>
                         </div>
                       )}
                     </div>
-                  </div>
-                  
-                  {/* Vertical Thumbnail Gallery */}
-                  {results.length > 1 && (
-                    <div className="w-20">
-                      <Label className="text-xs text-muted-foreground mb-2 block text-center">Verze</Label>
-                      <div className="flex flex-col space-y-2 max-h-96 overflow-y-auto">
-                        {results.map((result, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setSelectedResultIndex(index)}
-                            className={cn(
-                              "w-18 h-18 rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0",
-                              selectedResultIndex === index 
-                                ? "border-primary shadow-md ring-2 ring-primary/30" 
-                                : "border-border/30 hover:border-primary/50"
-                            )}
-                          >
-                            <img 
-                              src={result.resultUrl}
-                              alt={`Verze ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
