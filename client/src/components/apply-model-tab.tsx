@@ -74,6 +74,8 @@ export default function ApplyModelTab() {
       selectedModel: null
     }
   ]);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [isMultiModelMode, setIsMultiModelMode] = useState(false);
   const [globalSelectedModel, setGlobalSelectedModel] = useState<Model | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const { toast } = useToast();
@@ -278,6 +280,98 @@ export default function ApplyModelTab() {
     }
   });
 
+  const multiGenerateMutation = useMutation({
+    mutationFn: async (data: { modelIds: string[]; styleStrength: number; inputImage: File }) => {
+      const formData = new FormData();
+      formData.append('image', data.inputImage);
+      formData.append('modelIds', JSON.stringify(data.modelIds));
+      formData.append('styleStrength', data.styleStrength.toString());
+      formData.append('width', '1024');
+      formData.append('height', '1024');
+
+      const response = await fetch(`/api/models/multi-apply`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Multi-generation failed');
+      }
+
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Multi-generování dokončeno",
+        description: data.message
+      });
+      
+      // Create new instances for each successful result
+      const newInstances = data.results
+        .filter((result: any) => result.success)
+        .map((result: any, index: number) => ({
+          id: `multi-${Date.now()}-${index}`,
+          inputImage: instances[0].inputImage,
+          inputImagePreview: instances[0].inputImagePreview,
+          isProcessing: false,
+          processingProgress: 100,
+          results: [{ originalUrl: result.resultUrl, resultUrl: result.resultUrl }],
+          selectedResultIndex: 0,
+          selectedModel: readyModels.find((m: Model) => m.everartId === result.modelId) || null
+        }));
+      
+      setInstances(prev => [...prev, ...newInstances]);
+    },
+    onError: (error) => {
+      toast({
+        title: "Chyba",
+        description: "Multi-generování se nezdařilo",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleMultiModelSelect = (modelId: string) => {
+    setSelectedModelIds(prev => {
+      if (prev.includes(modelId)) {
+        return prev.filter(id => id !== modelId);
+      } else {
+        return [...prev, modelId];
+      }
+    });
+  };
+
+  const onMultiSubmit = async () => {
+    const instance = instances[0]; // Use first instance for multi-generation
+    if (!instance) return;
+
+    const data = form.getValues();
+    
+    if (selectedModelIds.length === 0) {
+      toast({
+        title: "Chyba",
+        description: "Vyberte alespoň jeden model pro multi-generování",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!instance.inputImage) {
+      toast({
+        title: "Chyba", 
+        description: "Nahrajte obrázek",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    multiGenerateMutation.mutate({
+      modelIds: selectedModelIds,
+      styleStrength: data.styleStrength,
+      inputImage: instance.inputImage
+    });
+  };
+
   const onSubmit = async (instanceId: string) => {
     const instance = instances.find(i => i.id === instanceId);
     if (!instance) return;
@@ -381,15 +475,41 @@ export default function ApplyModelTab() {
 
   return (
     <div>
+      {/* Mode Toggle */}
+      <div className="mb-4 flex items-center gap-4">
+        <Button
+          type="button"
+          variant={!isMultiModelMode ? "default" : "outline"}
+          onClick={() => setIsMultiModelMode(false)}
+          size="sm"
+        >
+          Jeden model
+        </Button>
+        <Button
+          type="button"
+          variant={isMultiModelMode ? "default" : "outline"}
+          onClick={() => setIsMultiModelMode(true)}
+          size="sm"
+        >
+          Více modelů současně
+        </Button>
+        {isMultiModelMode && selectedModelIds.length > 0 && (
+          <span className="text-sm text-muted-foreground">
+            Vybráno {selectedModelIds.length} modelů
+          </span>
+        )}
+      </div>
+
       {/* Model Gallery */}
       <div className="mb-6">
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
           {readyModels.map((model: Model) => (
             <div
               key={model.id}
-              onClick={() => handleModelSelect(model)}
+              onClick={() => isMultiModelMode ? handleMultiModelSelect(model.everartId) : handleModelSelect(model)}
               className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-2 ${
-                globalSelectedModel?.id === model.id
+                (isMultiModelMode && selectedModelIds.includes(model.everartId)) ||
+                (!isMultiModelMode && globalSelectedModel?.id === model.id)
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
@@ -404,7 +524,8 @@ export default function ApplyModelTab() {
                 ) : (
                   <Wand2 className="h-6 w-6 text-muted-foreground" />
                 )}
-                {globalSelectedModel?.id === model.id && (
+                {((isMultiModelMode && selectedModelIds.includes(model.everartId)) ||
+                  (!isMultiModelMode && globalSelectedModel?.id === model.id)) && (
                   <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
                     <Check className="h-3 w-3" />
                   </div>
@@ -603,23 +724,44 @@ export default function ApplyModelTab() {
                       </div>
                     )}
 
-                    <div className="flex justify-center">
-                      <Button 
-                        type="button"
-                        onClick={() => onSubmit(instance.id)}
-                        disabled={instance.isProcessing || !instance.inputImage || !instance.selectedModel}
-                        className="px-8 py-2"
-                        size="lg"
-                      >
-                        {instance.isProcessing ? (
-                          <>
-                            <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                            Aplikuji model
-                          </>
-                        ) : (
-                          "Aplikovat model"
-                        )}
-                      </Button>
+                    <div className="flex justify-center gap-2">
+                      {!isMultiModelMode && (
+                        <Button 
+                          type="button"
+                          onClick={() => onSubmit(instance.id)}
+                          disabled={instance.isProcessing || !instance.inputImage || !instance.selectedModel}
+                          className="px-8 py-2"
+                          size="lg"
+                        >
+                          {instance.isProcessing ? (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                              Aplikuji model
+                            </>
+                          ) : (
+                            "Aplikovat model"
+                          )}
+                        </Button>
+                      )}
+                      
+                      {isMultiModelMode && (
+                        <Button 
+                          type="button"
+                          onClick={onMultiSubmit}
+                          disabled={multiGenerateMutation.isPending || !instance.inputImage || selectedModelIds.length === 0}
+                          className="px-8 py-2"
+                          size="lg"
+                        >
+                          {multiGenerateMutation.isPending ? (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generuji {selectedModelIds.length} modelů...
+                            </>
+                          ) : (
+                            `Generovat s ${selectedModelIds.length} modely`
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>

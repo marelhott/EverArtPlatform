@@ -114,16 +114,27 @@ The application uses PostgreSQL with three main tables:
 - **TypeScript Fixes**: Resolved type errors in server/routes.ts for better deployment compatibility
 
 ### Model Management Enhancements
-- **Delete Functionality**: Added delete button (trash icon) to model thumbnails on homepage
-- **Confirmation Dialog**: Implemented user confirmation before model deletion
-- **API Integration**: DELETE endpoints for both EverArt API and local storage cleanup
+- **Delete Functionality**: Added small trash icon next to model names on homepage thumbnails
+- **Local-Only Deletion**: Models removed only from local application, NOT from EverArt API
+- **Confirmation Dialog**: User-friendly confirmation dialog before model removal
+- **UI Placement**: Trash icon positioned directly next to model name for easy access
 
 ### Cloudinary Integration Completed
-- **Cloud Storage**: Integrated Cloudinary for automatic image uploads
+- **Cloud Storage**: Integrated Cloudinary for automatic image uploads and CDN delivery
 - **API Configuration**: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET configured
-- **Automatic Upload**: Generated images automatically uploaded to Cloudinary CDN
+- **Automatic Upload**: All generated images automatically uploaded to Cloudinary CDN
+- **Automatic Sync**: Existing images automatically synchronized with Cloudinary on app load
+- **Background Processing**: Sync happens silently without user intervention
 - **Fallback Handling**: Graceful fallback to original URLs if Cloudinary upload fails
 - **Storage Structure**: Images organized in `everart-generations/` folder
+
+### Multi-Model Generation Feature
+- **Mode Toggle**: Switch between single model and multi-model generation modes
+- **Model Selection**: Click multiple models to select them for simultaneous processing
+- **Batch Processing**: Generate images with multiple models from single source image
+- **Concurrent API Calls**: Parallel processing of multiple models for faster results
+- **Individual Results**: Each model generates separate result instance
+- **Progress Tracking**: Real-time status updates for multi-model operations
 
 ### Environment Variables Required for Production
 1. **SESSION_SECRET** - Required for secure session management in production

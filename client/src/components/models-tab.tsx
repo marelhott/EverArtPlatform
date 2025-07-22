@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +105,7 @@ export default function ModelsTab() {
     }
   };
 
+  // Automatická synchronizace při načtení
   const syncCloudinaryMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/generations/sync-cloudinary`, {
@@ -115,19 +117,21 @@ export default function ModelsTab() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: "Synchronizace dokončena",
-        description: data.message
-      });
+      if (data.synced > 0) {
+        console.log(`Automaticky synchronizováno ${data.synced} obrázků s Cloudinary`);
+      }
     },
-    onError: () => {
-      toast({
-        title: "Chyba",
-        description: "Nepodařilo se synchronizovat s Cloudinary",
-        variant: "destructive"
-      });
+    onError: (error) => {
+      console.warn('Automatická synchronizace s Cloudinary selhala:', error);
     }
   });
+
+  // Spustit automatickou synchronizaci při prvním načtení
+  useEffect(() => {
+    if (models.length > 0) {
+      syncCloudinaryMutation.mutate();
+    }
+  }, [models.length]);
 
   if (error) {
     return (
@@ -149,24 +153,13 @@ export default function ModelsTab() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">Dostupné modely</h2>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => syncCloudinaryMutation.mutate()}
-            disabled={syncCloudinaryMutation.isPending}
-            variant="outline"
-            size="sm"
-          >
-            <Upload className={`mr-2 h-4 w-4 ${syncCloudinaryMutation.isPending ? 'animate-spin' : ''}`} />
-            Sync Cloudinary
-          </Button>
-          <Button 
-            onClick={() => refetch()} 
-            disabled={isLoading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Aktualizovat
-          </Button>
-        </div>
+        <Button 
+          onClick={() => refetch()} 
+          disabled={isLoading}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Aktualizovat
+        </Button>
       </div>
 
       {isLoading ? (
