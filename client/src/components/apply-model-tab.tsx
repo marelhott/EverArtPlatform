@@ -485,9 +485,7 @@ export default function ApplyModelTab() {
                     </div>
                   ) : (
                     <div className="text-center text-muted-foreground w-full h-full flex flex-col items-center justify-center">
-                      <Upload className="h-8 w-8 mx-auto mb-3" />
-                      <p className="font-medium mb-1 text-xs">Přetáhněte obrázky nebo klikněte pro výběr</p>
-                      <p className="text-xs text-muted-foreground">Podporované formáty: JPG, PNG. Doporučeno: 5-20 obrázků</p>
+                      <Upload className="h-8 w-8" />
                     </div>
                   )}
                   <input
