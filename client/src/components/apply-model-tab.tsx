@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { everArtApi } from "@/lib/everart-api";
-import { localGenerationsStorage, LocalGeneration } from "@/lib/localStorage";
+import { localGenerationsStorage, LocalGeneration, loadApplyModelState, saveApplyModelState } from "@/lib/localStorage";
 
 interface Model {
   id: number;
@@ -335,6 +335,39 @@ export default function ApplyModelTab() {
   const styleStrength = form.watch('styleStrength');
   const numImages = form.watch('numImages');
 
+  // Load saved state on mount
+  useEffect(() => {
+    const savedState = loadApplyModelState();
+    if (savedState && savedState.instances) {
+      setInstances(savedState.instances.map(instance => ({
+        ...instance,
+        isProcessing: false, // Reset processing state
+        processingProgress: 0
+      })));
+    }
+    if (savedState && savedState.selectedModelId && readyModels.length > 0) {
+      const model = readyModels.find(m => m.everartId === savedState.selectedModelId);
+      if (model) {
+        setGlobalSelectedModel(model);
+        form.setValue('modelId', model.everartId);
+      }
+    }
+  }, [readyModels]);
+
+  // Save state whenever instances or model changes
+  useEffect(() => {
+    if (instances.some(inst => inst.results.length > 0) || globalSelectedModel) {
+      saveApplyModelState({
+        instances: instances.map(instance => ({
+          ...instance,
+          inputImagePreview: "", // Don't save blob URLs as they expire
+          inputImage: null // Don't save File objects
+        })),
+        selectedModelId: globalSelectedModel?.everartId || null
+      });
+    }
+  }, [instances, globalSelectedModel]);
+
   // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
@@ -378,7 +411,7 @@ export default function ApplyModelTab() {
                 )}
               </div>
               <div className="text-center">
-                <p className="text-xs font-medium text-foreground truncate">{model.name}</p>
+                <p className="text-xs font-medium text-foreground truncate">{model.name.replace(/\bstyle\b/gi, '').trim()}</p>
                 <p className="text-xs text-muted-foreground truncate">{model.subject}</p>
               </div>
             </div>
