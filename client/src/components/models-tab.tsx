@@ -100,7 +100,7 @@ export default function ModelsTab() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
           {[...Array(6)].map((_, i) => (
             <Card key={i}>
               <Skeleton className="h-48 w-full rounded-t-lg" />
@@ -130,7 +130,7 @@ export default function ModelsTab() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
           {models.map((model) => (
             <Card key={model.id} className="hover:shadow-lg transition-shadow">
               <div className="aspect-video bg-muted">
