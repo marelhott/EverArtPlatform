@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useToast } from "@/hooks/use-toast";
-import { Image, Trash2, Download, Wand2, Check, X, ImageIcon } from "lucide-react";
+import { Image, Trash2, Download, Wand2, Check, X, ImageIcon, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
@@ -482,20 +482,9 @@ export default function ApplyModelTab() {
                     </div>
                   ) : (
                     <div className="text-center text-muted-foreground w-full h-full flex flex-col items-center justify-center">
-                      <ImageIcon className="h-6 w-6 mx-auto mb-2" />
-                      <p className="font-medium mb-1 text-xs">Přetáhněte obrázek</p>
-                      <p className="text-xs text-muted-foreground mb-2">nebo</p>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          document.getElementById('inputImageInput')?.click();
-                        }}
-                        className="text-xs px-2 py-1"
-                      >
-                        Vybrat soubor
-                      </Button>
+                      <Upload className="h-8 w-8 mx-auto mb-3" />
+                      <p className="font-medium mb-1 text-xs">Přetáhněte obrázky nebo klikněte pro výběr</p>
+                      <p className="text-xs text-muted-foreground">Podporované formáty: JPG, PNG. Doporučeno: 5-20 obrázků</p>
                     </div>
                   )}
                   <input
