@@ -453,9 +453,10 @@ export default function ApplyModelTab() {
               <div className="w-32 flex-shrink-0">
                 <Label className="mb-2 block text-center text-sm">Vstupní obrázek</Label>
                 <div 
-                  className="border-2 border-dashed border-border/50 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-muted/30 via-card to-accent/10 hover:border-border transition-colors aspect-square"
+                  className="border-2 border-dashed border-border/50 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-muted/30 via-card to-accent/10 hover:border-primary/50 transition-colors aspect-square cursor-pointer"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleImageDrop}
+                  onClick={() => document.getElementById('inputImageInput')?.click()}
                 >
                   {inputImagePreview ? (
                     <div className="relative w-full h-full">
