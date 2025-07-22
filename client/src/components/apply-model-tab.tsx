@@ -1,22 +1,29 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { z } from "zod";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
-import { VisuallyHidden } from "@/components/ui/visually-hidden";
+import { Slider } from "@/components/ui/slider";
+import { Wand2, Upload, X, Download, Plus, Trash2, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Image, Trash2, Download, Wand2, Check, X, ImageIcon, Upload } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { everArtApi } from "@/lib/everart-api";
-import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
-import type { Model, Generation } from "@shared/schema";
+import { localGenerationsStorage, LocalGeneration } from "@/lib/localStorage";
+
+interface Model {
+  id: number;
+  everartId: string;
+  name: string;
+  subject: string;
+  type: string;
+  status: string;
+  thumbnailUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const applyModelSchema = z.object({
   modelId: z.string().min(1, "Vyberte model"),
@@ -26,61 +33,148 @@ const applyModelSchema = z.object({
 
 type ApplyModelForm = z.infer<typeof applyModelSchema>;
 
-interface ApplyModelTabState {
-  inputImagePreview: string;
-  results: { originalUrl: string; resultUrl: string }[];
-  selectedResultIndex: number;
-  selectedModelId: string | null;
-}
-
-const APPLY_MODEL_STATE_KEY = 'apply-model-state';
-
-const saveApplyModelState = (state: ApplyModelTabState) => {
+const downloadImage = async (url: string, filename: string) => {
   try {
-    localStorage.setItem(APPLY_MODEL_STATE_KEY, JSON.stringify(state));
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    return true;
   } catch (error) {
-    console.warn('Failed to save apply model state:', error);
-  }
-};
-
-const loadApplyModelState = (): ApplyModelTabState | null => {
-  try {
-    const saved = localStorage.getItem(APPLY_MODEL_STATE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  } catch (error) {
-    console.warn('Failed to load apply model state:', error);
+    console.error('Download failed:', error);
     return null;
   }
 };
 
+interface GenerationInstance {
+  id: string;
+  inputImage: File | null;
+  inputImagePreview: string;
+  isProcessing: boolean;
+  processingProgress: number;
+  results: { originalUrl: string; resultUrl: string }[];
+  selectedResultIndex: number;
+  selectedModel: Model | null;
+}
+
 export default function ApplyModelTab() {
-  const [inputImage, setInputImage] = useState<File | null>(null);
-  const [inputImagePreview, setInputImagePreview] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(0);
-  const [results, setResults] = useState<{ originalUrl: string; resultUrl: string }[]>([]);
-  const [selectedResultIndex, setSelectedResultIndex] = useState(0);
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
+  const [instances, setInstances] = useState<GenerationInstance[]>([
+    {
+      id: '1',
+      inputImage: null,
+      inputImagePreview: '',
+      isProcessing: false,
+      processingProgress: 0,
+      results: [],
+      selectedResultIndex: 0,
+      selectedModel: null
+    }
+  ]);
+  const [globalSelectedModel, setGlobalSelectedModel] = useState<Model | null>(null);
   const { toast } = useToast();
 
   // Fetch available models
-  const { data: modelsData } = useQuery({
+  const { data: modelsData, isLoading: modelsLoading } = useQuery({
     queryKey: ['/api/models'],
-    queryFn: everArtApi.getModels
+    enabled: true
   });
 
-  const readyModels = modelsData?.models?.filter(model => model.status === "READY") || [];
+  const readyModels = modelsData?.models?.filter((model: Model) => 
+    model.status === 'COMPLETED' || model.status === 'READY'
+  ) || [];
 
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
     defaultValues: {
       modelId: "",
-      styleStrength: 0.6,
+      styleStrength: 0.7,
       numImages: 4
     }
   });
 
-  const applyModelMutation = useMutation({
+  const handleModelSelect = (model: Model) => {
+    setGlobalSelectedModel(model);
+    form.setValue('modelId', model.everartId);
+    
+    // Update all instances to use the selected model
+    setInstances(prev => prev.map(instance => ({
+      ...instance,
+      selectedModel: model
+    })));
+  };
+
+  const handleImageUpload = (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const previewUrl = URL.createObjectURL(file);
+      
+      setInstances(prev => prev.map(instance => 
+        instance.id === instanceId 
+          ? { ...instance, inputImage: file, inputImagePreview: previewUrl }
+          : instance
+      ));
+    }
+  };
+
+  const handleImageDrop = (instanceId: string, event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const files = event.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const previewUrl = URL.createObjectURL(file);
+      
+      setInstances(prev => prev.map(instance => 
+        instance.id === instanceId 
+          ? { ...instance, inputImage: file, inputImagePreview: previewUrl }
+          : instance
+      ));
+    }
+  };
+
+  const removeImage = (instanceId: string) => {
+    setInstances(prev => prev.map(instance => {
+      if (instance.id === instanceId && instance.inputImagePreview) {
+        URL.revokeObjectURL(instance.inputImagePreview);
+        return { ...instance, inputImage: null, inputImagePreview: '' };
+      }
+      return instance;
+    }));
+  };
+
+  const addInstance = () => {
+    if (instances.length < 3) {
+      const newInstance: GenerationInstance = {
+        id: Date.now().toString(),
+        inputImage: null,
+        inputImagePreview: '',
+        isProcessing: false,
+        processingProgress: 0,
+        results: [],
+        selectedResultIndex: 0,
+        selectedModel: globalSelectedModel
+      };
+      setInstances(prev => [...prev, newInstance]);
+    }
+  };
+
+  const removeInstance = (instanceId: string) => {
+    if (instances.length > 1) {
+      setInstances(prev => {
+        const instance = prev.find(i => i.id === instanceId);
+        if (instance && instance.inputImagePreview) {
+          URL.revokeObjectURL(instance.inputImagePreview);
+        }
+        return prev.filter(i => i.id !== instanceId);
+      });
+    }
+  };
+
+  const createApplyModelMutation = (instanceId: string) => useMutation({
     mutationFn: async (data: ApplyModelForm & { image: File }) => {
       const formData = new FormData();
       formData.append('image', data.image);
@@ -97,67 +191,74 @@ export default function ApplyModelTab() {
         description: "Styl byl úspěšně aplikován na obrázek"
       });
       
-      // Handle multiple results if available
-      if (data.generations && data.generations.length > 0) {
-        const newResults = data.generations
-          .filter((gen: any) => gen.image_url && !gen.failed)
-          .map((gen: any) => ({
-            originalUrl: inputImagePreview,
-            resultUrl: gen.image_url
-          }));
-        setResults(newResults);
-        setSelectedResultIndex(0);
-      } else if (data.generation && data.generation.outputImageUrl) {
-        setResults([{
-          originalUrl: inputImagePreview,
-          resultUrl: data.generation.outputImageUrl
-        }]);
-        setSelectedResultIndex(0);
-      } else if (data.resultUrl) {
-        setResults([{
-          originalUrl: inputImagePreview,
-          resultUrl: data.resultUrl
-        }]);
-        setSelectedResultIndex(0);
-      }
-      setIsProcessing(false);
-      setProcessingProgress(0);
-      
-      // Save to localStorage - save all generated images
-      if (selectedModel) {
+      setInstances(prev => prev.map(instance => {
+        if (instance.id !== instanceId) return instance;
+        
+        let newResults: { originalUrl: string; resultUrl: string }[] = [];
+        
+        // Handle multiple results if available
         if (data.generations && data.generations.length > 0) {
-          data.generations.forEach((gen: any, index: number) => {
-            if (gen.image_url && !gen.failed) {
-              const localGeneration: LocalGeneration = {
-                id: `${Date.now()}-${index}`,
-                outputImageUrl: gen.image_url,
-                inputImageUrl: inputImagePreview,
-                modelId: selectedModel.everartId,
-                createdAt: new Date().toISOString()
-              };
-              localGenerationsStorage.saveGeneration(localGeneration);
-            }
-          });
+          newResults = data.generations
+            .filter((gen: any) => gen.image_url && !gen.failed)
+            .map((gen: any) => ({
+              originalUrl: instance.inputImagePreview,
+              resultUrl: gen.image_url
+            }));
         } else if (data.generation && data.generation.outputImageUrl) {
-          const localGeneration: LocalGeneration = {
-            id: Date.now().toString(),
-            outputImageUrl: data.generation.outputImageUrl,
-            inputImageUrl: inputImagePreview,
-            modelId: selectedModel.everartId,
-            createdAt: new Date().toISOString()
-          };
-          localGenerationsStorage.saveGeneration(localGeneration);
+          newResults = [{
+            originalUrl: instance.inputImagePreview,
+            resultUrl: data.generation.outputImageUrl
+          }];
         } else if (data.resultUrl) {
-          const localGeneration: LocalGeneration = {
-            id: Date.now().toString(),
-            outputImageUrl: data.resultUrl,
-            inputImageUrl: inputImagePreview,
-            modelId: selectedModel.everartId,
-            createdAt: new Date().toISOString()
-          };
-          localGenerationsStorage.saveGeneration(localGeneration);
+          newResults = [{
+            originalUrl: instance.inputImagePreview,
+            resultUrl: data.resultUrl
+          }];
         }
-      }
+        
+        // Save to localStorage
+        if (instance.selectedModel) {
+          if (data.generations && data.generations.length > 0) {
+            data.generations.forEach((gen: any, index: number) => {
+              if (gen.image_url && !gen.failed) {
+                const localGeneration: LocalGeneration = {
+                  id: `${Date.now()}-${index}-${instanceId}`,
+                  outputImageUrl: gen.image_url,
+                  inputImageUrl: instance.inputImagePreview,
+                  modelId: instance.selectedModel!.everartId,
+                  createdAt: new Date().toISOString()
+                };
+                localGenerationsStorage.saveGeneration(localGeneration);
+              }
+            });
+          } else if (data.generation && data.generation.outputImageUrl) {
+            const localGeneration: LocalGeneration = {
+              id: `${Date.now()}-${instanceId}`,
+              outputImageUrl: data.generation.outputImageUrl,
+              inputImageUrl: instance.inputImagePreview,
+              modelId: instance.selectedModel.everartId,
+              createdAt: new Date().toISOString()
+            };
+            localGenerationsStorage.saveGeneration(localGeneration);
+          } else if (data.resultUrl) {
+            const localGeneration: LocalGeneration = {
+              id: `${Date.now()}-${instanceId}`,
+              outputImageUrl: data.resultUrl,
+              inputImageUrl: instance.inputImagePreview,
+              modelId: instance.selectedModel.everartId,
+              createdAt: new Date().toISOString()
+            };
+            localGenerationsStorage.saveGeneration(localGeneration);
+          }
+        }
+        
+        return {
+          ...instance,
+          isProcessing: false,
+          processingProgress: 0,
+          results: newResults
+        };
+      }));
     },
     onError: (error) => {
       toast({
@@ -165,170 +266,90 @@ export default function ApplyModelTab() {
         description: error.message || "Nepodařilo se aplikovat styl",
         variant: "destructive"
       });
-      setIsProcessing(false);
-      setProcessingProgress(0);
+      setInstances(prev => prev.map(instance => 
+        instance.id === instanceId 
+          ? { ...instance, isProcessing: false, processingProgress: 0 }
+          : instance
+      ));
     }
   });
 
-  const handleImageSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setInputImage(file);
-      const preview = URL.createObjectURL(file);
-      setInputImagePreview(preview);
-      setResults([]);
-    }
-  }, []);
+  const onSubmit = async (instanceId: string) => {
+    const instance = instances.find(i => i.id === instanceId);
+    if (!instance) return;
 
-  const handleImageDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setInputImage(file);
-      const preview = URL.createObjectURL(file);
-      setInputImagePreview(preview);
-      setResults([]);
-    }
-  }, []);
-
-  const removeInputImage = () => {
-    if (inputImagePreview) {
-      URL.revokeObjectURL(inputImagePreview);
-    }
-    setInputImage(null);
-    setInputImagePreview("");
-    setResults([]);
-  };
-
-  const resetForm = () => {
-    form.reset();
-    removeInputImage();
-    setResults([]);
-    setSelectedModel(null);
-  };
-
-  const downloadResult = async () => {
-    if (!results[selectedResultIndex]?.resultUrl) return;
-
-    try {
-      const response = await fetch(results[selectedResultIndex].resultUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'stylized-result.jpg';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
+    const data = form.getValues();
+    
+    if (!instance.selectedModel) {
       toast({
         title: "Chyba",
-        description: "Nepodařilo se stáhnout výsledek",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleModelSelect = (model: Model) => {
-    setSelectedModel(model);
-    form.setValue('modelId', model.everartId);
-  };
-
-  const onSubmit = (data: ApplyModelForm) => {
-    if (!inputImage) {
-      toast({
-        title: "Chyba",
-        description: "Vyberte vstupní obrázek",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedModel) {
-      toast({
-        title: "Chyba", 
         description: "Vyberte model",
         variant: "destructive"
       });
       return;
     }
 
-    setIsProcessing(true);
-    setProcessingProgress(0);
+    if (!instance.inputImage) {
+      toast({
+        title: "Chyba", 
+        description: "Nahrajte obrázek",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setInstances(prev => prev.map(inst => 
+      inst.id === instanceId 
+        ? { ...inst, isProcessing: true, processingProgress: 0 }
+        : inst
+    ));
     
     // Simulate progress during processing
     const progressInterval = setInterval(() => {
-      setProcessingProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90; // Keep at 90% until actual completion
+      setInstances(prev => prev.map(inst => {
+        if (inst.id === instanceId) {
+          const newProgress = inst.processingProgress >= 90 
+            ? 90 
+            : inst.processingProgress + Math.random() * 15;
+          if (newProgress >= 90) clearInterval(progressInterval);
+          return { ...inst, processingProgress: newProgress };
         }
-        return prev + Math.random() * 15;
-      });
+        return inst;
+      }));
     }, 3000);
 
-    applyModelMutation.mutate({
+    const mutation = createApplyModelMutation(instanceId);
+    mutation.mutate({
       ...data,
-      image: inputImage
+      image: instance.inputImage
     });
   };
 
   const styleStrength = form.watch('styleStrength');
   const numImages = form.watch('numImages');
 
-  // Load saved state on mount
-  useEffect(() => {
-    const savedState = loadApplyModelState();
-    if (savedState) {
-      // Only restore valid image previews (not blob URLs which expire)
-      if (savedState.inputImagePreview && !savedState.inputImagePreview.startsWith('blob:')) {
-        setInputImagePreview(savedState.inputImagePreview);
-      }
-      setResults(savedState.results);
-      setSelectedResultIndex(savedState.selectedResultIndex);
-      if (savedState.selectedModelId && readyModels.length > 0) {
-        const model = readyModels.find(m => m.everartId === savedState.selectedModelId);
-        if (model) {
-          setSelectedModel(model);
-          form.setValue('modelId', model.everartId);
-        }
-      }
-    }
-  }, [readyModels]);
-
-  // Save state whenever key values change
-  useEffect(() => {
-    if (results.length > 0) {
-      saveApplyModelState({
-        inputImagePreview: "", // Don't save blob URLs as they expire
-        results,
-        selectedResultIndex,
-        selectedModelId: selectedModel?.everartId || null
-      });
-    }
-  }, [results, selectedResultIndex, selectedModel]);
-
   // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
-      if (inputImagePreview) {
-        URL.revokeObjectURL(inputImagePreview);
-      }
+      instances.forEach(instance => {
+        if (instance.inputImagePreview) {
+          URL.revokeObjectURL(instance.inputImagePreview);
+        }
+      });
     };
-  }, [inputImagePreview]);
+  }, []);
 
   return (
     <div>
       {/* Model Gallery */}
       <div className="mb-6">
         <div className="grid grid-cols-10 sm:grid-cols-12 md:grid-cols-15 lg:grid-cols-18 xl:grid-cols-22 gap-0">
-          {readyModels.map((model) => (
+          {readyModels.map((model: Model) => (
             <div
               key={model.id}
               onClick={() => handleModelSelect(model)}
               className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-1 ${
-                selectedModel?.id === model.id
+                globalSelectedModel?.id === model.id
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
@@ -344,28 +365,20 @@ export default function ApplyModelTab() {
                 ) : (
                   <Wand2 className="h-6 w-6 text-muted-foreground" />
                 )}
-                {selectedModel?.id === model.id && (
+                {globalSelectedModel?.id === model.id && (
                   <div className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground rounded-full p-0.5">
                     <Check className="h-2 w-2" />
                   </div>
                 )}
               </div>
-              <div className="absolute bottom-0.5 left-0.5 right-0.5 bg-gradient-to-t from-black/60 to-transparent p-1 rounded-b-md">
-                <p className="text-white text-xs font-medium truncate">{model.name}</p>
-              </div>
             </div>
           ))}
         </div>
-        {form.formState.errors.modelId && (
-          <p className="text-sm text-red-600 mt-2">
-            {form.formState.errors.modelId.message}
-          </p>
-        )}
       </div>
       
       <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg">
         <CardContent className="p-6">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form className="space-y-6">
             {/* Settings */}
             <div className="space-y-6">
 
@@ -413,153 +426,161 @@ export default function ApplyModelTab() {
                   </div>
                 </div>
               </div>
-
-              {/* Apply Button */}
-              <div className="flex justify-center">
-                <Button 
-                  type="submit" 
-                  disabled={isProcessing || applyModelMutation.isPending}
-                  className="px-8 py-2"
-                  size="lg"
-                >
-                  {isProcessing || applyModelMutation.isPending ? (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                      Aplikuji model
-                    </>
-                  ) : (
-                    "Aplikovat model"
-                  )}
-                </Button>
-              </div>
-
-              {/* Progress Bar */}
-              {isProcessing && (
-                <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 rounded-2xl p-4 border border-border/50 shadow-sm backdrop-blur-sm">
-                  <div className="flex items-center mb-2">
-                    <Wand2 className="mr-2 h-4 w-4 animate-spin text-primary" />
-                    <span className="font-medium">Zpracovávám obrázek...</span>
-                  </div>
-                  <div className="flex justify-center">
-                    <Progress value={processingProgress} className="h-2 w-1/2" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 text-center">
-                    {Math.round(processingProgress)}% dokončeno
-                  </p>
-                </div>
-              )}
             </div>
-
-            {/* New Layout: Small Input + 4 Large Results Grid */}
-            <div className="flex gap-6 mt-6">
-              {/* Small Input Image Preview - 30% smaller */}
-              <div className="w-32 flex-shrink-0">
-                <Label className="mb-2 block text-center text-sm">Vstupní obrázek</Label>
-                <div 
-                  className="border-2 border-dashed border-border/50 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-muted/30 via-card to-accent/10 hover:border-primary/50 transition-colors aspect-square cursor-pointer"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleImageDrop}
-                  onClick={() => document.getElementById('inputImageInput')?.click()}
-                >
-                  {inputImagePreview ? (
-                    <div className="relative w-full h-full">
-                      <img 
-                        src={inputImagePreview} 
-                        alt="Preview" 
-                        className="w-full h-full object-cover rounded-lg shadow-sm"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setInputImage(null);
-                          setInputImagePreview("");
-                          setResults([]);
-                        }}
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0 hover:bg-destructive/90 hover:text-destructive-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center text-muted-foreground w-full h-full flex flex-col items-center justify-center">
-                      <Upload className="h-8 w-8" />
-                    </div>
-                  )}
-                  <input
-                    id="inputImageInput"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-
-              {/* Results Row */}
-              <div className="flex-1">
-                <Label className="mb-2 block text-center">Stylizované výsledky</Label>
-                <div className="flex gap-3">
-                  {[0, 1, 2, 3].map((index) => (
-                    <div
-                      key={index}
-                      className="flex-1 border-2 border-border/30 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-accent/20 via-card to-secondary/15 shadow-lg backdrop-blur-sm aspect-square"
-                    >
-                      {results[index] ? (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <img 
-                              src={results[index].resultUrl} 
-                              alt={`Stylized result ${index + 1}`} 
-                              className="w-full h-full object-cover rounded-lg shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
-                            />
-                          </DialogTrigger>
-                          <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
-                            <VisuallyHidden>
-                              <DialogTitle>Zvětšený obrázek</DialogTitle>
-                            </VisuallyHidden>
-                            <div className="flex justify-center items-center min-h-0">
-                              <img 
-                                src={results[index].resultUrl} 
-                                alt="Stylized result - enlarged" 
-                                className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                              />
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ) : (
-                        <div className="text-center text-muted-foreground">
-                          <Wand2 className="h-6 w-6 mx-auto mb-1" />
-                          <p className="text-xs">Výsledek {index + 1}</p>
-                        </div>
+            
+            {/* Generation Instances */}
+            <div className="space-y-6">
+              {instances.map((instance, index) => (
+                <div key={instance.id} className="relative">
+                  {/* Instance Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Instance {index + 1}</h3>
+                    <div className="flex gap-2">
+                      {instances.length < 3 && index === instances.length - 1 && (
+                        <Button 
+                          type="button"
+                          onClick={addInstance}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Přidat
+                        </Button>
+                      )}
+                      {instances.length > 1 && (
+                        <Button 
+                          type="button"
+                          onClick={() => removeInstance(instance.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                  </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center space-x-3 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={resetForm}>
-                Resetovat
-              </Button>
-              
-              {results.length > 0 && (
-                <Button onClick={downloadResult} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Stáhnout
-                </Button>
-              )}
+                  {/* Image Upload and Results */}
+                  <div className="flex gap-4">
+                    {/* Input Image - Left side, small */}
+                    <div className="flex-shrink-0">
+                      <div 
+                        className="relative w-24 h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors bg-muted/30"
+                        onDrop={(e) => handleImageDrop(instance.id, e)}
+                        onDragOver={(e) => e.preventDefault()}
+                      >
+                        {instance.inputImagePreview ? (
+                          <div className="relative w-full h-full">
+                            <img 
+                              src={instance.inputImagePreview} 
+                              alt="Input" 
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => removeImage(instance.id)}
+                              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 bg-destructive hover:bg-destructive/90"
+                              size="sm"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground w-full h-full flex flex-col items-center justify-center">
+                            <Upload className="h-8 w-8" />
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(instance.id, e)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Results Grid - Right side, large */}
+                    <div className="flex-1">
+                      <div className="grid grid-cols-4 gap-4">
+                        {Array.from({ length: 4 }, (_, i) => (
+                          <div key={i} className="relative">
+                            <div className="aspect-square bg-muted/30 rounded-lg border border-border overflow-hidden">
+                              {instance.results[i] ? (
+                                <img 
+                                  src={instance.results[i].resultUrl}
+                                  alt={`Result ${i + 1}`}
+                                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                  onClick={() => setInstances(prev => 
+                                    prev.map(inst => 
+                                      inst.id === instance.id 
+                                        ? { ...inst, selectedResultIndex: i }
+                                        : inst
+                                    )
+                                  )}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <div className="text-center">
+                                    <div className="w-8 h-8 mx-auto mb-2 bg-muted rounded-lg flex items-center justify-center">
+                                      <span className="text-xs font-medium">{i + 1}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {instance.results[i] && (
+                              <Button
+                                type="button"
+                                onClick={() => downloadImage(instance.results[i].resultUrl, `result-${Date.now()}-${i + 1}.png`)}
+                                className="absolute top-2 right-2 h-6 w-6 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+                                size="sm"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress and Controls */}
+                  <div className="mt-4">
+                    {instance.isProcessing && (
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between text-sm">
+                          <span>Aplikuji styl...</span>
+                          <span>{Math.round(instance.processingProgress)}%</span>
+                        </div>
+                        <Progress value={instance.processingProgress} className="h-2" />
+                      </div>
+                    )}
+
+                    <div className="flex justify-center">
+                      <Button 
+                        type="button"
+                        onClick={() => onSubmit(instance.id)}
+                        disabled={instance.isProcessing || !instance.inputImage || !instance.selectedModel}
+                        className="px-8 py-2"
+                        size="lg"
+                      >
+                        {instance.isProcessing ? (
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                            Aplikuji model
+                          </>
+                        ) : (
+                          "Aplikovat model"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </form>
         </CardContent>
       </Card>
-
-
-
     </div>
   );
 }
