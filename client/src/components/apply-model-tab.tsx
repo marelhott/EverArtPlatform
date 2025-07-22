@@ -281,7 +281,10 @@ export default function ApplyModelTab() {
   useEffect(() => {
     const savedState = loadApplyModelState();
     if (savedState) {
-      setInputImagePreview(savedState.inputImagePreview);
+      // Only restore valid image previews (not blob URLs which expire)
+      if (savedState.inputImagePreview && !savedState.inputImagePreview.startsWith('blob:')) {
+        setInputImagePreview(savedState.inputImagePreview);
+      }
       setResults(savedState.results);
       setSelectedResultIndex(savedState.selectedResultIndex);
       if (savedState.selectedModelId && readyModels.length > 0) {
@@ -296,15 +299,15 @@ export default function ApplyModelTab() {
 
   // Save state whenever key values change
   useEffect(() => {
-    if (inputImagePreview || results.length > 0) {
+    if (results.length > 0) {
       saveApplyModelState({
-        inputImagePreview,
+        inputImagePreview: "", // Don't save blob URLs as they expire
         results,
         selectedResultIndex,
         selectedModelId: selectedModel?.everartId || null
       });
     }
-  }, [inputImagePreview, results, selectedResultIndex, selectedModel]);
+  }, [results, selectedResultIndex, selectedModel]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
