@@ -103,3 +103,19 @@ The application uses PostgreSQL with three main tables:
 **Real-time Status Updates**: Polling-based model training status updates to provide responsive user experience despite long-running AI operations.
 
 **File Upload Handling**: Memory-based multer storage with size limits for efficient file processing without persistent storage requirements.
+
+## Recent Changes (July 22, 2025)
+
+### Deployment Fixes Applied
+- **Environment Detection**: Added proper NODE_ENV and REPLIT_DEPLOYMENT detection for production mode
+- **Session Configuration**: Implemented express-session with SESSION_SECRET environment variable
+- **Production Mode**: Fixed production vs development mode detection in server/index.ts
+- **Build Process**: Confirmed ESBuild compilation outputs to dist/index.js as expected
+- **TypeScript Fixes**: Resolved type errors in server/routes.ts for better deployment compatibility
+
+### Environment Variables Required for Production
+1. **SESSION_SECRET** - Required for secure session management in production
+2. **EVERART_API_KEY** - Required for AI image processing (already configured)
+3. **NODE_ENV** - Set to "production" for deployment (or REPLIT_DEPLOYMENT will be detected)
+
+The application now properly handles production deployment with secure session management and correct environment detection.

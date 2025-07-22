@@ -222,7 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (!completedGenerations.find(cg => cg.id === genStatus.id)) {
                   completedGenerations.push({
                     id: genStatus.id,
-                    image_url: null,
+                    image_url: undefined,
                     failed: true
                   });
                 }
@@ -272,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateGeneration(generation.id, { status: "FAILED" });
         res.status(500).json({ message: "Generování se nezdařilo" });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error applying model:", error);
       if (error.response) {
         console.error("EverArt API response:", error.response.data);
