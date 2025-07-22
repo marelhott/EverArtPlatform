@@ -332,27 +332,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete model
+  // Sync existing generations with Cloudinary
+  app.post("/api/generations/sync-cloudinary", async (req, res) => {
+    try {
+      const generations = await storage.getAllGenerations();
+      let syncedCount = 0;
+      let errors = 0;
+
+      for (const generation of generations) {
+        if (generation.outputImageUrl && !generation.outputImageUrl.includes('cloudinary.com')) {
+          try {
+            if (CloudinaryService.isConfigured()) {
+              const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                generation.outputImageUrl,
+                'everart-generations'
+              );
+              
+              await storage.updateGeneration(generation.id, {
+                outputImageUrl: cloudinaryResult.secure_url
+              });
+              
+              syncedCount++;
+              console.log(`Synced generation ${generation.id} to Cloudinary`);
+            }
+          } catch (syncError) {
+            console.error(`Failed to sync generation ${generation.id}:`, syncError);
+            errors++;
+          }
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        synced: syncedCount, 
+        errors: errors,
+        message: `Synchronizováno ${syncedCount} obrázků, ${errors} chyb`
+      });
+    } catch (error) {
+      console.error("Error syncing generations:", error);
+      res.status(500).json({ message: "Nepodařilo se synchronizovat obrázky" });
+    }
+  });
+
+  // Delete model (only from local storage, NOT from EverArt)
   app.delete("/api/models/:everartId", async (req, res) => {
     try {
       const { everartId } = req.params;
       
-      // First try to delete from EverArt API
-      try {
-        await apiClient.delete(`/models/${everartId}`);
-        console.log(`Model ${everartId} deleted from EverArt API`);
-      } catch (apiError) {
-        console.warn(`Failed to delete model from EverArt API: ${everartId}`, apiError);
-        // Continue with local deletion even if API deletion fails
-      }
-      
-      // Delete from local storage
+      // Only delete from local storage, NOT from EverArt API
       await storage.deleteModel(everartId);
+      console.log(`Model ${everartId} removed from local storage only`);
       
-      res.json({ success: true, message: "Model smazán" });
+      res.json({ success: true, message: "Model odebrán z aplikace" });
     } catch (error) {
       console.error("Error deleting model:", error);
-      res.status(500).json({ message: "Nepodařilo se smazat model" });
+      res.status(500).json({ message: "Nepodařilo se odebrat model" });
     }
   });
 

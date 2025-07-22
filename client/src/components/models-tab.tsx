@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Download, Bot, Wand2, Trash2 } from "lucide-react";
+import { RefreshCw, Download, Bot, Wand2, Trash2, Upload } from "lucide-react";
 import { everArtApi } from "@/lib/everart-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -99,10 +99,35 @@ export default function ModelsTab() {
   };
 
   const handleDeleteModel = (modelId: string, modelName: string) => {
-    if (confirm(`Opravdu chcete smazat model "${modelName}"? Tato akce je nevratná.`)) {
+    if (confirm(`Opravdu chcete odebrat model "${modelName}" z aplikace? Model zůstane v EverArt.`)) {
       deleteModelMutation.mutate(modelId);
     }
   };
+
+  const syncCloudinaryMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/generations/sync-cloudinary`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to sync with Cloudinary');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Synchronizace dokončena",
+        description: data.message
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se synchronizovat s Cloudinary",
+        variant: "destructive"
+      });
+    }
+  });
 
   if (error) {
     return (
@@ -124,13 +149,24 @@ export default function ModelsTab() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">Dostupné modely</h2>
-        <Button 
-          onClick={() => refetch()} 
-          disabled={isLoading}
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Aktualizovat
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => syncCloudinaryMutation.mutate()}
+            disabled={syncCloudinaryMutation.isPending}
+            variant="outline"
+            size="sm"
+          >
+            <Upload className={`mr-2 h-4 w-4 ${syncCloudinaryMutation.isPending ? 'animate-spin' : ''}`} />
+            Sync Cloudinary
+          </Button>
+          <Button 
+            onClick={() => refetch()} 
+            disabled={isLoading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Aktualizovat
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -182,7 +218,21 @@ export default function ModelsTab() {
               </div>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold truncate">{model.name}</h3>
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">{model.name}</h3>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteModel(model.everartId, model.name);
+                      }}
+                      disabled={deleteModelMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                   <Badge className={getStatusColor(model.status)}>
                     {model.status}
                   </Badge>
@@ -210,15 +260,6 @@ export default function ModelsTab() {
                     disabled={!model.thumbnailUrl}
                   >
                     <Download className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDeleteModel(model.everartId, model.name)}
-                    disabled={deleteModelMutation.isPending}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </CardContent>
