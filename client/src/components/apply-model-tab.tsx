@@ -469,7 +469,8 @@ export default function ApplyModelTab() {
                         type="button"
                         size="sm"
                         variant="secondary"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setInputImage(null);
                           setInputImagePreview("");
                           setResults([]);
@@ -480,13 +481,17 @@ export default function ApplyModelTab() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="text-center text-muted-foreground w-full">
-                      <ImageIcon className="h-8 w-8 mx-auto mb-2" />
-                      <p className="text-xs mb-2">Přetáhněte obrázek</p>
+                    <div className="text-center text-muted-foreground w-full h-full flex flex-col items-center justify-center">
+                      <ImageIcon className="h-6 w-6 mx-auto mb-2" />
+                      <p className="font-medium mb-1 text-xs">Přetáhněte obrázek</p>
+                      <p className="text-xs text-muted-foreground mb-2">nebo</p>
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() => document.getElementById('inputImageInput')?.click()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          document.getElementById('inputImageInput')?.click();
+                        }}
                         className="text-xs px-2 py-1"
                       >
                         Vybrat soubor
