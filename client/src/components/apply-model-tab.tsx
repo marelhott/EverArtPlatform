@@ -449,8 +449,8 @@ export default function ApplyModelTab() {
 
             {/* New Layout: Small Input + 4 Large Results Grid */}
             <div className="flex gap-6 mt-6">
-              {/* Small Input Image Preview */}
-              <div className="w-48 flex-shrink-0">
+              {/* Small Input Image Preview - 30% smaller */}
+              <div className="w-32 flex-shrink-0">
                 <Label className="mb-2 block text-center text-sm">Vstupní obrázek</Label>
                 <div 
                   className="border-2 border-dashed border-border/50 rounded-xl p-3 flex items-center justify-center bg-gradient-to-br from-muted/30 via-card to-accent/10 hover:border-border transition-colors aspect-square"
