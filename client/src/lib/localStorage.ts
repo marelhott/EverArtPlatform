@@ -8,7 +8,6 @@ export interface LocalGeneration {
 
 export interface ApplyModelState {
   instances?: any[];
-  selectedModelId?: string | null;
   inputImagePreview?: string;
   results?: { originalUrl: string; resultUrl: string }[];
   selectedResultIndex?: number;

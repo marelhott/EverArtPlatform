@@ -143,6 +143,10 @@ export default function ModelsTab() {
   useEffect(() => {
     // Spustit synchronizaci vždy při načtení stránky
     const timer = setTimeout(() => {
+      // Aktivně načteme existující localStorage data
+      const existingLocalData = JSON.parse(localStorage.getItem('everart_generations') || '[]');
+      console.log(`Spouštím synchronizaci s ${existingLocalData.length} existujícími generacemi v localStorage`);
+      
       syncCloudinaryMutation.mutate();
     }, 1000); // Delay to ensure everything is loaded
 

@@ -75,8 +75,6 @@ export default function ApplyModelTab() {
     }
   ]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
-  const [isMultiModelMode, setIsMultiModelMode] = useState(false);
-  const [globalSelectedModel, setGlobalSelectedModel] = useState<Model | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -98,17 +96,6 @@ export default function ApplyModelTab() {
       numImages: 4
     }
   });
-
-  const handleModelSelect = (model: Model) => {
-    setGlobalSelectedModel(model);
-    form.setValue('modelId', model.everartId);
-    
-    // Update all instances to use the selected model
-    setInstances(prev => prev.map(instance => ({
-      ...instance,
-      selectedModel: model
-    })));
-  };
 
   const handleImageUpload = (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -159,7 +146,7 @@ export default function ApplyModelTab() {
         processingProgress: 0,
         results: [],
         selectedResultIndex: 0,
-        selectedModel: globalSelectedModel
+        selectedModel: null
       };
       setInstances(prev => [...prev, newInstance]);
     }
@@ -439,28 +426,20 @@ export default function ApplyModelTab() {
         processingProgress: 0
       })));
     }
-    if (savedState && savedState.selectedModelId && readyModels.length > 0) {
-      const model = readyModels.find(m => m.everartId === savedState.selectedModelId);
-      if (model) {
-        setGlobalSelectedModel(model);
-        form.setValue('modelId', model.everartId);
-      }
-    }
   }, [readyModels]);
 
-  // Save state whenever instances or model changes
+  // Save state whenever instances change
   useEffect(() => {
-    if (instances.some(inst => inst.results.length > 0) || globalSelectedModel) {
+    if (instances.some(inst => inst.results.length > 0)) {
       saveApplyModelState({
         instances: instances.map(instance => ({
           ...instance,
           inputImagePreview: "", // Don't save blob URLs as they expire
           inputImage: null // Don't save File objects
-        })),
-        selectedModelId: globalSelectedModel?.everartId || null
+        }))
       });
     }
-  }, [instances, globalSelectedModel]);
+  }, [instances]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
@@ -475,30 +454,17 @@ export default function ApplyModelTab() {
 
   return (
     <div>
-      {/* Mode Toggle */}
-      <div className="mb-4 flex items-center gap-4">
-        <Button
-          type="button"
-          variant={!isMultiModelMode ? "default" : "outline"}
-          onClick={() => setIsMultiModelMode(false)}
-          size="sm"
-        >
-          Jeden model
-        </Button>
-        <Button
-          type="button"
-          variant={isMultiModelMode ? "default" : "outline"}
-          onClick={() => setIsMultiModelMode(true)}
-          size="sm"
-        >
-          Více modelů současně
-        </Button>
-        {isMultiModelMode && selectedModelIds.length > 0 && (
-          <span className="text-sm text-muted-foreground">
-            Vybráno {selectedModelIds.length} modelů
+      {/* Model Selection Info */}
+      {selectedModelIds.length > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <span className="text-sm text-blue-800 dark:text-blue-200">
+            {selectedModelIds.length === 1 
+              ? "Vybrán 1 model pro generování" 
+              : `Vybráno ${selectedModelIds.length} modelů pro současné generování`
+            }
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Model Gallery */}
       <div className="mb-6">
@@ -506,10 +472,9 @@ export default function ApplyModelTab() {
           {readyModels.map((model: Model) => (
             <div
               key={model.id}
-              onClick={() => isMultiModelMode ? handleMultiModelSelect(model.everartId) : handleModelSelect(model)}
+              onClick={() => handleMultiModelSelect(model.everartId)}
               className={`relative cursor-pointer transition-all duration-200 bg-white dark:bg-white/10 rounded-lg p-2 ${
-                (isMultiModelMode && selectedModelIds.includes(model.everartId)) ||
-                (!isMultiModelMode && globalSelectedModel?.id === model.id)
+                selectedModelIds.includes(model.everartId)
                   ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105 z-10'
                   : 'hover:scale-105 hover:ring-1 hover:ring-primary/50 hover:ring-offset-1'
               }`}
@@ -524,8 +489,7 @@ export default function ApplyModelTab() {
                 ) : (
                   <Wand2 className="h-6 w-6 text-muted-foreground" />
                 )}
-                {((isMultiModelMode && selectedModelIds.includes(model.everartId)) ||
-                  (!isMultiModelMode && globalSelectedModel?.id === model.id)) && (
+                {selectedModelIds.includes(model.everartId) && (
                   <div className="absolute top-1 right-1 bg-primary text-primary-foreground rounded-full p-1">
                     <Check className="h-3 w-3" />
                   </div>
@@ -724,44 +688,52 @@ export default function ApplyModelTab() {
                       </div>
                     )}
 
-                    <div className="flex justify-center gap-2">
-                      {!isMultiModelMode && (
-                        <Button 
-                          type="button"
-                          onClick={() => onSubmit(instance.id)}
-                          disabled={instance.isProcessing || !instance.inputImage || !instance.selectedModel}
-                          className="px-8 py-2"
-                          size="lg"
-                        >
-                          {instance.isProcessing ? (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                              Aplikuji model
-                            </>
-                          ) : (
-                            "Aplikovat model"
-                          )}
-                        </Button>
-                      )}
-                      
-                      {isMultiModelMode && (
-                        <Button 
-                          type="button"
-                          onClick={onMultiSubmit}
-                          disabled={multiGenerateMutation.isPending || !instance.inputImage || selectedModelIds.length === 0}
-                          className="px-8 py-2"
-                          size="lg"
-                        >
-                          {multiGenerateMutation.isPending ? (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generuji {selectedModelIds.length} modelů...
-                            </>
-                          ) : (
-                            `Generovat s ${selectedModelIds.length} modely`
-                          )}
-                        </Button>
-                      )}
+                    <div className="flex justify-center">
+                      <Button 
+                        type="button"
+                        onClick={() => {
+                          if (selectedModelIds.length === 1) {
+                            // Single model generation
+                            const selectedModel = readyModels.find(m => m.everartId === selectedModelIds[0]);
+                            if (selectedModel) {
+                              setInstances(prev => prev.map(inst => 
+                                inst.id === instance.id 
+                                  ? { ...inst, selectedModel }
+                                  : inst
+                              ));
+                              onSubmit(instance.id);
+                            }
+                          } else if (selectedModelIds.length > 1) {
+                            // Multi-model generation
+                            onMultiSubmit();
+                          }
+                        }}
+                        disabled={
+                          (selectedModelIds.length === 1 && instance.isProcessing) ||
+                          (selectedModelIds.length > 1 && multiGenerateMutation.isPending) ||
+                          !instance.inputImage || 
+                          selectedModelIds.length === 0
+                        }
+                        className="px-8 py-2"
+                        size="lg"
+                      >
+                        {((selectedModelIds.length === 1 && instance.isProcessing) || 
+                          (selectedModelIds.length > 1 && multiGenerateMutation.isPending)) ? (
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4 animate-spin" />
+                            {selectedModelIds.length === 1 
+                              ? "Generuji..." 
+                              : `Generuji ${selectedModelIds.length} modelů...`
+                            }
+                          </>
+                        ) : (
+                          selectedModelIds.length === 0 
+                            ? "Vyberte model(y)" 
+                            : selectedModelIds.length === 1
+                              ? "Generovat"
+                              : `Generovat s ${selectedModelIds.length} modely`
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </div>
