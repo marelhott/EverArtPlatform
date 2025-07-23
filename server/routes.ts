@@ -547,6 +547,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 🔍 Debug endpoint - serve localStorage debug tool
+  app.get("/debug-localStorage", (req, res) => {
+    res.sendFile(path.join(__dirname, '../debug-localStorage.html'));
+  });
+
   // Delete model (only from local storage, NOT from EverArt)
   app.delete("/api/models/:everartId", async (req, res) => {
     try {
