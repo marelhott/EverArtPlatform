@@ -575,8 +575,8 @@ export default function ApplyModelTab() {
         </div>
       </div>
       
-      <div className="glass-card rounded-2xl overflow-hidden shadow-2xl">
-        <div className="p-8">
+      <Card className="glass-card rounded-2xl overflow-hidden shadow-2xl">
+        <CardContent className="p-8">
           <form className="space-y-8">
             {/* Settings */}
             <div className="space-y-8">
