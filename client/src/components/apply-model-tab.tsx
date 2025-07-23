@@ -116,6 +116,27 @@ export default function ApplyModelTab() {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Chyba",
+          description: "Vyberte prosím obrázek (JPG, PNG, GIF, atd.)",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Chyba", 
+          description: "Obrázek je příliš velký. Maximální velikost je 10MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       const previewUrl = URL.createObjectURL(file);
       
       setInstances(prev => prev.map(instance => 
@@ -131,8 +152,23 @@ export default function ApplyModelTab() {
           : instance
       ));
       
+      // Toast pro úspěšné nahrání
+      toast({
+        title: "Obrázek nahrán",
+        description: "Začínám analýzu pro adaptivní sílu stylu..."
+      });
+      
       // Analyze image for adaptive style strength
-      await analyzeImageForAdaptiveStyle(instanceId, file);
+      try {
+        await analyzeImageForAdaptiveStyle(instanceId, file);
+      } catch (error) {
+        console.error('Image analysis failed:', error);
+        toast({
+          title: "Varování",
+          description: "Analýza obrázku se nezdařila, ale obrázek byl nahrán.",
+          variant: "default"
+        });
+      }
     }
   };
 
@@ -141,6 +177,17 @@ export default function ApplyModelTab() {
     const files = event.dataTransfer.files;
     if (files && files.length > 0) {
       const file = files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Chyba",
+          description: "Můžete nahrát pouze obrázky",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       const previewUrl = URL.createObjectURL(file);
       
       setInstances(prev => prev.map(instance => 
@@ -156,8 +203,17 @@ export default function ApplyModelTab() {
           : instance
       ));
       
+      toast({
+        title: "Obrázek nahrán",
+        description: "Provádím analýzu..."
+      });
+      
       // Analyze image for adaptive style strength
-      await analyzeImageForAdaptiveStyle(instanceId, file);
+      try {
+        await analyzeImageForAdaptiveStyle(instanceId, file);
+      } catch (error) {
+        console.error('Image analysis failed:', error);
+      }
     }
   };
 
@@ -312,10 +368,12 @@ export default function ApplyModelTab() {
   const analyzeImageForAdaptiveStyle = useCallback(async (instanceId: string, imageFile: File) => {
     try {
       const analysis = await AdaptiveStyleCalculator.analyzeImage(imageFile);
-      const selectedModel = instances.find(i => i.id === instanceId)?.selectedModel;
+      
+      // Get current instance to check model type
+      const currentInstance = instances.find(i => i.id === instanceId);
       const recommendation = AdaptiveStyleCalculator.calculateOptimalStrength(
         analysis, 
-        selectedModel?.type || 'STYLE'
+        currentInstance?.selectedModel?.type || 'STYLE'
       );
 
       setInstances(prev => prev.map(instance => 
@@ -325,7 +383,6 @@ export default function ApplyModelTab() {
       ));
 
       // Auto-apply recommended strength if adaptive mode is enabled
-      const currentInstance = instances.find(i => i.id === instanceId);
       if (currentInstance?.adaptiveStrengthEnabled && recommendation.strength !== form.getValues('styleStrength')) {
         form.setValue('styleStrength', recommendation.strength);
         toast({
@@ -335,6 +392,10 @@ export default function ApplyModelTab() {
       }
     } catch (error) {
       console.error('Image analysis failed:', error);
+      toast({
+        title: "Analýza dokončena",
+        description: "Obrázek byl nahrán a je připraven k použití"
+      });
     }
   }, [instances, form, toast]);
 
@@ -851,8 +912,12 @@ export default function ApplyModelTab() {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => handleImageUpload(instance.id, e)}
+                          onChange={(e) => {
+                            console.log('File input change triggered:', e.target.files);
+                            handleImageUpload(instance.id, e);
+                          }}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          title="Klikněte nebo přetáhněte obrázek pro nahrání"
                         />
                       </div>
                       
