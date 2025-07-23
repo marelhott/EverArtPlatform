@@ -61,7 +61,6 @@ interface GenerationInstance {
   results: { originalUrl: string; resultUrl: string }[];
   selectedResultIndex: number;
   selectedModel: Model | null;
-
 }
 
 export default function ApplyModelTab() {
@@ -74,13 +73,7 @@ export default function ApplyModelTab() {
       processingProgress: 0,
       results: [],
       selectedResultIndex: 0,
-      selectedModel: null,
-      imageAnalysis: null,
-      styleRecommendation: null,
-      previewUrl: null,
-      previewProgress: 0,
-      isGeneratingPreview: false,
-      adaptiveStrengthEnabled: true
+      selectedModel: null
     }
   ]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
@@ -183,15 +176,10 @@ export default function ApplyModelTab() {
       
       toast({
         title: "Obrázek nahrán",
-        description: "Provádím analýzu..."
+        description: `Soubor ${file.name} byl úspěšně nahrán`
       });
       
-      // Analyze image for adaptive style strength
-      try {
-        await analyzeImageForAdaptiveStyle(instanceId, file);
-      } catch (error) {
-        console.error('Image analysis failed:', error);
-      }
+
     }
   };
 
@@ -347,88 +335,7 @@ export default function ApplyModelTab() {
     }
   });
 
-  // Adaptive style functions
-  const analyzeImageForAdaptiveStyle = useCallback(async (instanceId: string, imageFile: File) => {
-    try {
-      const analysis = await AdaptiveStyleCalculator.analyzeImage(imageFile);
-      
-      // Get current instance to check model type
-      const currentInstance = instances.find(i => i.id === instanceId);
-      const recommendation = AdaptiveStyleCalculator.calculateOptimalStrength(
-        analysis, 
-        currentInstance?.selectedModel?.type || 'STYLE'
-      );
 
-      setInstances(prev => prev.map(instance => 
-        instance.id === instanceId 
-          ? { ...instance, imageAnalysis: analysis, styleRecommendation: recommendation }
-          : instance
-      ));
-
-      // Auto-apply recommended strength if adaptive mode is enabled
-      if (currentInstance?.adaptiveStrengthEnabled && recommendation.strength !== form.getValues('styleStrength')) {
-        form.setValue('styleStrength', recommendation.strength);
-        toast({
-          title: "Adaptivní síla stylu",
-          description: `Automaticky nastavena síla ${Math.round(recommendation.strength * 100)}% - ${recommendation.reasoning}`,
-        });
-      }
-    } catch (error) {
-      console.error('Image analysis failed:', error);
-      toast({
-        title: "Analýza dokončena",
-        description: "Obrázek byl nahrán a je připraven k použití"
-      });
-    }
-  }, [instances, form, toast]);
-
-  const generateRealtimePreview = async (instanceId: string) => {
-    const instance = instances.find(i => i.id === instanceId);
-    if (!instance?.inputImage || !instance.selectedModel) return;
-
-    setInstances(prev => prev.map(i => 
-      i.id === instanceId 
-        ? { ...i, isGeneratingPreview: true, previewProgress: 0 }
-        : i
-    ));
-
-    try {
-      const previewUrl = await PreviewGenerator.generatePreview(
-        instance.inputImage,
-        instance.selectedModel.everartId,
-        form.getValues('styleStrength'),
-        (progress) => {
-          setInstances(prev => prev.map(i => 
-            i.id === instanceId 
-              ? { ...i, previewProgress: progress }
-              : i
-          ));
-        }
-      );
-
-      setInstances(prev => prev.map(i => 
-        i.id === instanceId 
-          ? { ...i, previewUrl, isGeneratingPreview: false }
-          : i
-      ));
-
-    } catch (error) {
-      setInstances(prev => prev.map(i => 
-        i.id === instanceId 
-          ? { ...i, isGeneratingPreview: false }
-          : i
-      ));
-      console.error('Preview generation failed:', error);
-    }
-  };
-
-  const toggleAdaptiveStrength = (instanceId: string) => {
-    setInstances(prev => prev.map(instance => 
-      instance.id === instanceId 
-        ? { ...instance, adaptiveStrengthEnabled: !instance.adaptiveStrengthEnabled }
-        : instance
-    ));
-  };
 
   const multiGenerateMutation = useMutation({
     mutationFn: async (data: { modelIds: string[]; styleStrength: number; inputImage: File }) => {
@@ -728,32 +635,10 @@ export default function ApplyModelTab() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">Instance {index + 1}</h3>
-                      {instance.imageAnalysis && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">
-                            <Brain className="h-3 w-3 mr-1" />
-                            Analyzován
-                          </Badge>
-                          {instance.styleRecommendation && (
-                            <Badge variant="outline" className="text-xs">
-                              AI doporučuje: {Math.round(instance.styleRecommendation.strength * 100)}%
-                            </Badge>
-                          )}
-                        </div>
-                      )}
+
                     </div>
                     <div className="flex gap-2">
-                      {instance.inputImage && (
-                        <Button 
-                          type="button"
-                          onClick={() => toggleAdaptiveStrength(instance.id)}
-                          variant={instance.adaptiveStrengthEnabled ? "default" : "outline"}
-                          size="sm"
-                        >
-                          <Brain className="h-4 w-4 mr-1" />
-                          {instance.adaptiveStrengthEnabled ? "Adaptivní ON" : "Adaptivní OFF"}
-                        </Button>
-                      )}
+
                       {instances.length < 3 && index === instances.length - 1 && (
                         <Button 
                           type="button"
