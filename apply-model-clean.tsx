@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
 import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, LocalGeneration, loadApplyModelState, saveApplyModelState } from "@/lib/localStorage";
-
 
 interface Model {
   id: number;
@@ -61,71 +59,61 @@ interface GenerationInstance {
   results: { originalUrl: string; resultUrl: string }[];
   selectedResultIndex: number;
   selectedModel: Model | null;
-
 }
 
 export default function ApplyModelTab() {
   const [instances, setInstances] = useState<GenerationInstance[]>([
     {
-      id: '1',
+      id: Date.now().toString(),
       inputImage: null,
       inputImagePreview: '',
       isProcessing: false,
       processingProgress: 0,
       results: [],
       selectedResultIndex: 0,
-      selectedModel: null,
-      imageAnalysis: null,
-      styleRecommendation: null,
-      previewUrl: null,
-      previewProgress: 0,
-      isGeneratingPreview: false,
-      adaptiveStrengthEnabled: true
+      selectedModel: null
     }
   ]);
+  
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Fetch available models
-  const { data: modelsData, isLoading: modelsLoading } = useQuery({
-    queryKey: ['/api/models'],
-    enabled: true
-  });
-
-  const readyModels = (modelsData as any)?.models?.filter((model: Model) => 
-    model.status === 'COMPLETED' || model.status === 'READY'
-  ) || [];
-
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
     defaultValues: {
-      modelId: "",
       styleStrength: 0.7,
       numImages: 4
     }
   });
 
+  const { data: modelsData } = useQuery({
+    queryKey: ['/api/models'],
+    refetchInterval: 30000,
+  });
+
+  const readyModels = modelsData?.models?.filter((model: Model) => 
+    model.status === 'COMPLETED' || model.status === 'READY'
+  ) || [];
+
+  const handleMultiModelSelect = (modelId: string) => {
+    setSelectedModelIds(prev => {
+      if (prev.includes(modelId)) {
+        return prev.filter(id => id !== modelId);
+      } else {
+        return [...prev, modelId];
+      }
+    });
+  };
+
   const handleImageUpload = async (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    
     if (files && files.length > 0) {
       const file = files[0];
       
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Chyba",
-          description: "Vyberte prosím obrázek (JPG, PNG, GIF, atd.)",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast({
-          title: "Chyba", 
+          title: "Chyba",
           description: "Obrázek je příliš velký. Maximální velikost je 10MB.",
           variant: "destructive"
         });
@@ -134,7 +122,6 @@ export default function ApplyModelTab() {
       
       const previewUrl = URL.createObjectURL(file);
       
-      // Update instance immediately and keep the preview stable
       setInstances(prev => prev.map(instance => 
         instance.id === instanceId 
           ? { 
@@ -145,7 +132,6 @@ export default function ApplyModelTab() {
           : instance
       ));
       
-      // Toast pro úspěšné nahrání
       toast({
         title: "Obrázek nahrán",
         description: `Soubor ${file.name} byl úspěšně nahrán`
@@ -159,7 +145,6 @@ export default function ApplyModelTab() {
     if (files && files.length > 0) {
       const file = files[0];
       
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         toast({
           title: "Chyba",
@@ -183,15 +168,8 @@ export default function ApplyModelTab() {
       
       toast({
         title: "Obrázek nahrán",
-        description: "Provádím analýzu..."
+        description: `Soubor ${file.name} byl úspěšně nahrán`
       });
-      
-      // Analyze image for adaptive style strength
-      try {
-        await analyzeImageForAdaptiveStyle(instanceId, file);
-      } catch (error) {
-        console.error('Image analysis failed:', error);
-      }
     }
   };
 
@@ -269,277 +247,50 @@ export default function ApplyModelTab() {
         
         let newResults: { originalUrl: string; resultUrl: string }[] = [];
         
-        // Handle multiple results if available
         if ((data as any).generations && (data as any).generations.length > 0) {
-          newResults = (data as any).generations
-            .filter((gen: any) => gen.image_url && !gen.failed)
-            .map((gen: any) => ({
-              originalUrl: instance.inputImagePreview,
-              resultUrl: gen.image_url
-            }));
-        } else if ((data as any).generation && (data as any).generation.outputImageUrl) {
+          const generations = (data as any).generations;
+          newResults = generations.map((gen: any) => ({
+            originalUrl: gen.inputImageUrl || '',
+            resultUrl: gen.outputImageUrl || ''
+          }));
+        } else if ((data as any).outputImageUrl) {
           newResults = [{
-            originalUrl: instance.inputImagePreview,
-            resultUrl: (data as any).generation.outputImageUrl
+            originalUrl: (data as any).inputImageUrl || '',
+            resultUrl: (data as any).outputImageUrl
           }];
-        } else if ((data as any).resultUrl) {
-          newResults = [{
-            originalUrl: instance.inputImagePreview,
-            resultUrl: (data as any).resultUrl
-          }];
-        }
-        
-        // Save to localStorage
-        if (instance.selectedModel) {
-          if ((data as any).generations && (data as any).generations.length > 0) {
-            (data as any).generations.forEach((gen: any, index: number) => {
-              if (gen.image_url && !gen.failed) {
-                const localGeneration: LocalGeneration = {
-                  id: `${Date.now()}-${index}-${instanceId}`,
-                  outputImageUrl: gen.image_url,
-                  inputImageUrl: instance.inputImagePreview,
-                  modelId: instance.selectedModel!.everartId,
-                  createdAt: new Date().toISOString()
-                };
-                localGenerationsStorage.saveGeneration(localGeneration);
-              }
-            });
-          } else if ((data as any).generation && (data as any).generation.outputImageUrl) {
-            const localGeneration: LocalGeneration = {
-              id: `${Date.now()}-${instanceId}`,
-              outputImageUrl: (data as any).generation.outputImageUrl,
-              inputImageUrl: instance.inputImagePreview,
-              modelId: instance.selectedModel.everartId,
-              createdAt: new Date().toISOString()
-            };
-            localGenerationsStorage.saveGeneration(localGeneration);
-          } else if ((data as any).resultUrl) {
-            const localGeneration: LocalGeneration = {
-              id: `${Date.now()}-${instanceId}`,
-              outputImageUrl: (data as any).resultUrl,
-              inputImageUrl: instance.inputImagePreview,
-              modelId: instance.selectedModel.everartId,
-              createdAt: new Date().toISOString()
-            };
-            localGenerationsStorage.saveGeneration(localGeneration);
-          }
         }
         
         return {
           ...instance,
           isProcessing: false,
-          processingProgress: 0,
+          processingProgress: 100,
           results: newResults
         };
       }));
     },
-    onError: (error: any, variables) => {
-      toast({
-        title: "Chyba",
-        description: error.message || "Nepodařilo se aplikovat styl",
-        variant: "destructive"
-      });
+    onError: (error: any, { instanceId }) => {
+      console.error('Error applying model:', error);
       setInstances(prev => prev.map(instance => 
-        instance.id === variables.instanceId
+        instance.id === instanceId 
           ? { ...instance, isProcessing: false, processingProgress: 0 }
           : instance
       ));
-    }
-  });
-
-  // Adaptive style functions
-  const analyzeImageForAdaptiveStyle = useCallback(async (instanceId: string, imageFile: File) => {
-    try {
-      const analysis = await AdaptiveStyleCalculator.analyzeImage(imageFile);
       
-      // Get current instance to check model type
-      const currentInstance = instances.find(i => i.id === instanceId);
-      const recommendation = AdaptiveStyleCalculator.calculateOptimalStrength(
-        analysis, 
-        currentInstance?.selectedModel?.type || 'STYLE'
-      );
-
-      setInstances(prev => prev.map(instance => 
-        instance.id === instanceId 
-          ? { ...instance, imageAnalysis: analysis, styleRecommendation: recommendation }
-          : instance
-      ));
-
-      // Auto-apply recommended strength if adaptive mode is enabled
-      if (currentInstance?.adaptiveStrengthEnabled && recommendation.strength !== form.getValues('styleStrength')) {
-        form.setValue('styleStrength', recommendation.strength);
-        toast({
-          title: "Adaptivní síla stylu",
-          description: `Automaticky nastavena síla ${Math.round(recommendation.strength * 100)}% - ${recommendation.reasoning}`,
-        });
-      }
-    } catch (error) {
-      console.error('Image analysis failed:', error);
-      toast({
-        title: "Analýza dokončena",
-        description: "Obrázek byl nahrán a je připraven k použití"
-      });
-    }
-  }, [instances, form, toast]);
-
-  const generateRealtimePreview = async (instanceId: string) => {
-    const instance = instances.find(i => i.id === instanceId);
-    if (!instance?.inputImage || !instance.selectedModel) return;
-
-    setInstances(prev => prev.map(i => 
-      i.id === instanceId 
-        ? { ...i, isGeneratingPreview: true, previewProgress: 0 }
-        : i
-    ));
-
-    try {
-      const previewUrl = await PreviewGenerator.generatePreview(
-        instance.inputImage,
-        instance.selectedModel.everartId,
-        form.getValues('styleStrength'),
-        (progress) => {
-          setInstances(prev => prev.map(i => 
-            i.id === instanceId 
-              ? { ...i, previewProgress: progress }
-              : i
-          ));
-        }
-      );
-
-      setInstances(prev => prev.map(i => 
-        i.id === instanceId 
-          ? { ...i, previewUrl, isGeneratingPreview: false }
-          : i
-      ));
-
-    } catch (error) {
-      setInstances(prev => prev.map(i => 
-        i.id === instanceId 
-          ? { ...i, isGeneratingPreview: false }
-          : i
-      ));
-      console.error('Preview generation failed:', error);
-    }
-  };
-
-  const toggleAdaptiveStrength = (instanceId: string) => {
-    setInstances(prev => prev.map(instance => 
-      instance.id === instanceId 
-        ? { ...instance, adaptiveStrengthEnabled: !instance.adaptiveStrengthEnabled }
-        : instance
-    ));
-  };
-
-  const multiGenerateMutation = useMutation({
-    mutationFn: async (data: { modelIds: string[]; styleStrength: number; inputImage: File }) => {
-      const formData = new FormData();
-      formData.append('image', data.inputImage);
-      formData.append('modelIds', JSON.stringify(data.modelIds));
-      formData.append('styleStrength', data.styleStrength.toString());
-      formData.append('width', '1024');
-      formData.append('height', '1024');
-
-      const response = await fetch(`/api/models/multi-apply`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Multi-generation failed');
-      }
-
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Multi-generování dokončeno",
-        description: data.message
-      });
-      
-      // Create new instances for each successful result
-      const newInstances = data.results
-        .filter((result: any) => result.success)
-        .map((result: any, index: number) => ({
-          id: `multi-${Date.now()}-${index}`,
-          inputImage: instances[0].inputImage,
-          inputImagePreview: instances[0].inputImagePreview,
-          isProcessing: false,
-          processingProgress: 100,
-          results: [{ originalUrl: result.resultUrl, resultUrl: result.resultUrl }],
-          selectedResultIndex: 0,
-          selectedModel: readyModels.find((m: Model) => m.everartId === result.modelId) || null
-        }));
-      
-      setInstances(prev => [...prev, ...newInstances]);
-    },
-    onError: (error) => {
       toast({
         title: "Chyba",
-        description: "Multi-generování se nezdařilo",
+        description: error.message || "Nepodařilo se aplikovat styl na obrázek",
         variant: "destructive"
       });
     }
   });
 
-  const handleMultiModelSelect = (modelId: string) => {
-    setSelectedModelIds(prev => {
-      if (prev.includes(modelId)) {
-        return prev.filter(id => id !== modelId);
-      } else {
-        return [...prev, modelId];
-      }
-    });
-  };
-
-  const onMultiSubmit = async () => {
-    const instance = instances[0]; // Use first instance for multi-generation
-    if (!instance) return;
-
-    const data = form.getValues();
+  const applyModelToInstance = async (instanceId: string) => {
+    const instance = instances.find(inst => inst.id === instanceId);
+    const formData = form.getValues();
     
-    if (selectedModelIds.length === 0) {
+    if (!instance || !instance.inputImage) {
       toast({
         title: "Chyba",
-        description: "Vyberte alespoň jeden model pro multi-generování",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!instance.inputImage) {
-      toast({
-        title: "Chyba", 
-        description: "Nahrajte obrázek",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    multiGenerateMutation.mutate({
-      modelIds: selectedModelIds,
-      styleStrength: data.styleStrength,
-      inputImage: instance.inputImage
-    });
-  };
-
-  const onSubmit = async (instanceId: string) => {
-    const instance = instances.find(i => i.id === instanceId);
-    if (!instance) return;
-
-    const data = form.getValues();
-    
-    if (!instance.selectedModel) {
-      toast({
-        title: "Chyba",
-        description: "Vyberte model",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!instance.inputImage) {
-      toast({
-        title: "Chyba", 
         description: "Nahrajte obrázek",
         variant: "destructive"
       });
@@ -552,7 +303,6 @@ export default function ApplyModelTab() {
         : inst
     ));
     
-    // Simulate progress during processing
     const progressInterval = setInterval(() => {
       setInstances(prev => prev.map(inst => {
         if (inst.id === instanceId && inst.isProcessing) {
@@ -570,8 +320,8 @@ export default function ApplyModelTab() {
     }, 3000);
 
     applyModelMutation.mutate({
-      ...data,
-      modelId: instance.selectedModel.everartId,
+      ...formData,
+      modelId: instance.selectedModel!.everartId,
       image: instance.inputImage,
       instanceId
     });
@@ -586,7 +336,7 @@ export default function ApplyModelTab() {
     if (savedState && savedState.instances) {
       setInstances(savedState.instances.map(instance => ({
         ...instance,
-        isProcessing: false, // Reset processing state
+        isProcessing: false,
         processingProgress: 0
       })));
     }
@@ -598,8 +348,8 @@ export default function ApplyModelTab() {
       saveApplyModelState({
         instances: instances.map(instance => ({
           ...instance,
-          inputImagePreview: "", // Don't save blob URLs as they expire
-          inputImage: null // Don't save File objects
+          inputImagePreview: "",
+          inputImage: null
         }))
       });
     }
@@ -724,36 +474,12 @@ export default function ApplyModelTab() {
             <div className="space-y-6">
               {instances.map((instance, index) => (
                 <div key={instance.id} className="relative">
-                  {/* Instance Header with Adaptive Controls */}
+                  {/* Instance Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">Instance {index + 1}</h3>
-                      {instance.imageAnalysis && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">
-                            <Brain className="h-3 w-3 mr-1" />
-                            Analyzován
-                          </Badge>
-                          {instance.styleRecommendation && (
-                            <Badge variant="outline" className="text-xs">
-                              AI doporučuje: {Math.round(instance.styleRecommendation.strength * 100)}%
-                            </Badge>
-                          )}
-                        </div>
-                      )}
                     </div>
                     <div className="flex gap-2">
-                      {instance.inputImage && (
-                        <Button 
-                          type="button"
-                          onClick={() => toggleAdaptiveStrength(instance.id)}
-                          variant={instance.adaptiveStrengthEnabled ? "default" : "outline"}
-                          size="sm"
-                        >
-                          <Brain className="h-4 w-4 mr-1" />
-                          {instance.adaptiveStrengthEnabled ? "Adaptivní ON" : "Adaptivní OFF"}
-                        </Button>
-                      )}
                       {instances.length < 3 && index === instances.length - 1 && (
                         <Button 
                           type="button"
@@ -772,16 +498,18 @@ export default function ApplyModelTab() {
                           variant="outline"
                           size="sm"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Odebrat
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  {/* Image Upload and Results */}
-                  <div className="flex gap-4">
-                    {/* Input Image with Analysis Info */}
-                    <div className="flex-shrink-0">
+                  {/* Main Layout */}
+                  <div className="flex gap-6">
+                    {/* Left side - Image upload and controls */}
+                    <div className="flex-shrink-0 w-40 space-y-4">
+                      {/* Image Upload Area */}
                       <div 
                         className="relative w-24 h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors bg-muted/30"
                         onDrop={(e) => handleImageDrop(instance.id, e)}
@@ -796,7 +524,6 @@ export default function ApplyModelTab() {
                               onLoad={() => console.log('Image loaded successfully')}
                               onError={(e) => {
                                 console.error('Image failed to load:', e);
-                                // Don't remove the preview on error, just log it
                               }}
                             />
                             <Button
@@ -816,15 +543,11 @@ export default function ApplyModelTab() {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => {
-                            console.log('File input change triggered:', e.target.files);
-                            handleImageUpload(instance.id, e);
-                          }}
+                          onChange={(e) => handleImageUpload(instance.id, e)}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           title="Klikněte nebo přetáhněte obrázek pro nahrání"
                         />
                       </div>
-                      
 
                     </div>
 
@@ -906,53 +629,15 @@ export default function ApplyModelTab() {
                       </div>
                     )}
 
-                    <div className="flex justify-center flex-col items-center gap-2">
-                      <Button 
+                    <div className="flex gap-2">
+                      <Button
                         type="button"
-                        onClick={() => {
-
-                          
-                          if (selectedModelIds.length === 1) {
-                            // Single model generation
-                            const selectedModel = readyModels.find((m: Model) => m.everartId === selectedModelIds[0]);
-                            if (selectedModel) {
-                              setInstances(prev => prev.map(inst => 
-                                inst.id === instance.id 
-                                  ? { ...inst, selectedModel }
-                                  : inst
-                              ));
-                              onSubmit(instance.id);
-                            }
-                          } else if (selectedModelIds.length > 1) {
-                            // Multi-model generation
-                            onMultiSubmit();
-                          }
-                        }}
-                        disabled={
-                          (selectedModelIds.length === 1 && (instance.isProcessing || applyModelMutation.isPending)) ||
-                          (selectedModelIds.length > 1 && multiGenerateMutation.isPending) ||
-                          (!instance.inputImage && !instance.inputImagePreview) || 
-                          selectedModelIds.length === 0
-                        }
-                        className="px-8 py-2"
-                        size="lg"
+                        onClick={() => applyModelToInstance(instance.id)}
+                        disabled={!instance.inputImage || selectedModelIds.length === 0 || instance.isProcessing}
+                        className="flex-1 bg-gradient-to-r from-primary via-primary to-primary hover:from-primary/90 hover:via-primary/90 hover:to-primary/90"
                       >
-                        {((selectedModelIds.length === 1 && instance.isProcessing) || 
-                          (selectedModelIds.length > 1 && multiGenerateMutation.isPending)) ? (
-                          <>
-                            <Wand2 className="mr-2 h-4 w-4 animate-spin" />
-                            {selectedModelIds.length === 1 
-                              ? "Generuji..." 
-                              : `Generuji ${selectedModelIds.length} modelů...`
-                            }
-                          </>
-                        ) : (
-                          selectedModelIds.length === 0 
-                            ? "Vyberte model(y)" 
-                            : selectedModelIds.length === 1
-                              ? "Generovat"
-                              : `Generovat s ${selectedModelIds.length} modely`
-                        )}
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        {instance.isProcessing ? "Zpracovávám..." : "Aplikovat styl"}
                       </Button>
                     </div>
                   </div>
@@ -963,32 +648,24 @@ export default function ApplyModelTab() {
         </CardContent>
       </Card>
 
-      {/* Image Enlargement Modal */}
+      {/* Enlarged Image Modal */}
       {enlargedImage && (
         <div 
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 cursor-pointer"
           onClick={() => setEnlargedImage(null)}
         >
-          <div className="relative max-w-4xl max-h-full">
+          <div className="relative max-w-4xl max-h-full p-4">
             <img 
-              src={enlargedImage}
+              src={enlargedImage} 
               alt="Enlarged result"
-              className="max-w-full max-h-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-full object-contain"
             />
             <Button
               onClick={() => setEnlargedImage(null)}
-              className="absolute top-4 right-4 h-10 w-10 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
+              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white"
               size="sm"
             >
               <X className="h-4 w-4" />
-            </Button>
-            <Button
-              onClick={() => downloadImage(enlargedImage, `enlarged-result-${Date.now()}.png`)}
-              className="absolute top-4 left-4 h-10 w-10 rounded-full p-0 bg-black/50 hover:bg-black/70 text-white"
-              size="sm"
-            >
-              <Download className="h-4 w-4" />
             </Button>
           </div>
         </div>
