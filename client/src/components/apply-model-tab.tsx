@@ -276,8 +276,19 @@ export default function ApplyModelTab() {
       formData.append('height', '512');
       formData.append('numImages', data.numImages.toString());
 
+      console.log('Calling API with modelId:', data.modelId);
+      const response = await fetch(`/api/models/${data.modelId}/apply`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
       return { 
-        result: await everArtApi.applyModel(data.modelId, formData),
+        result,
         instanceId: data.instanceId
       };
     },
@@ -594,6 +605,7 @@ export default function ApplyModelTab() {
 
     applyModelMutation.mutate({
       ...data,
+      modelId: instance.selectedModel.everartId,
       image: instance.inputImage,
       instanceId
     });
@@ -998,10 +1010,7 @@ export default function ApplyModelTab() {
                       </div>
                     )}
 
-                    <div className="flex justify-center">
-                      <div className="text-xs text-muted-foreground mb-2">
-                        Debug: hasImage={!!instance.inputImage}, hasPreview={!!instance.inputImagePreview}, selectedModels={selectedModelIds.length}
-                      </div>
+                    <div className="flex justify-center flex-col items-center gap-2">
                       <Button 
                         type="button"
                         onClick={() => {
@@ -1029,7 +1038,7 @@ export default function ApplyModelTab() {
                           }
                         }}
                         disabled={
-                          (selectedModelIds.length === 1 && instance.isProcessing) ||
+                          (selectedModelIds.length === 1 && (instance.isProcessing || applyModelMutation.isPending)) ||
                           (selectedModelIds.length > 1 && multiGenerateMutation.isPending) ||
                           (!instance.inputImage && !instance.inputImagePreview) || 
                           selectedModelIds.length === 0
