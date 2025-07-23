@@ -18,9 +18,7 @@ export class CloudinaryService {
     try {
       const result = await cloudinary.uploader.upload(imageUrl, {
         folder: folderPath,
-        resource_type: 'image',
-        quality: 'auto',
-        format: 'auto' // Automatic format optimization
+        resource_type: 'image'
       });
 
       return {
@@ -28,9 +26,10 @@ export class CloudinaryService {
         url: result.url,
         secure_url: result.secure_url
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Cloudinary upload failed:', error);
-      throw new Error('Failed to upload image to Cloudinary');
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      throw new Error(`Failed to upload image to Cloudinary: ${error.message || 'Unknown error'}`);
     }
   }
 
@@ -40,9 +39,7 @@ export class CloudinaryService {
         {
           folder: folderPath,
           resource_type: 'image',
-          public_id: filename.split('.')[0], // Use filename without extension
-          quality: 'auto',
-          format: 'auto'
+          public_id: filename.split('.')[0] // Use filename without extension
         },
         (error, result) => {
           if (error) {

@@ -1,31 +1,35 @@
-# ✅ Cloudinary Integrace Dokončena
+# Cloudinary Setup a Synchronizace - Status
 
-## Nastavené API klíče:
-- **CLOUDINARY_CLOUD_NAME**: dhklg06cx ✅
-- **CLOUDINARY_API_KEY**: q_brpHpdMIMHQySVgDFnB_Oszl4 ✅  
-- **CLOUDINARY_API_SECRET**: ✅ (nastaveno)
+## 🔧 Současný stav
 
-## Co Cloudinary nyní dělá:
+### Problém s Cloudinary synchronizací
+- **Chyba**: "Invalid extension in transformation: auto"
+- **Příčina**: Cloudinary API má problém s některými URL parametry
+- **Testováno**: Odstranění `quality: 'auto'` a `format: 'auto'` parametrů
 
-### 🔄 Automatické nahrávání
-- Všechny vygenerované obrázky z EverArt se automaticky nahrávají na Cloudinary
-- Obrázky se ukládají ve složce `everart-generations/`
-- Používá se optimalizace kvality a formátu (auto)
+### Co funguje
+✅ **Delete funkce** - Modely se mazají pouze lokálně
+✅ **Multi-model interface** - Unified checkbox selection
+✅ **Database operations** - Storage funguje správně
 
-### ⚡ Výhody:
-- **Rychlejší načítání** - Cloudinary CDN
-- **Automatická optimalizace** - WebP, AVIF formáty
-- **Trvalé uložení** - obrázky se neztratí
-- **Neomezené úložiště** - v rámci bezplatného tarifu (25 GB)
+### Co nefunguje  
+❌ **Cloudinary sync** - Upload selhává kvůli transformaci
 
-### 📍 Struktura na Cloudinary:
-```
-dhklg06cx/
-└── everart-generations/
-    ├── generation_1.jpg
-    ├── generation_2.png
-    └── ...
-```
+## 📋 EverArt API - Odpověď na dotaz o sloučených modelech
 
-## Status: ✅ FUNKČNÍ
-Aplikace nyní automaticky ukládá vygenerované obrázky na Cloudinary místo lokálního úložiště.
+### ❌ **Sloučené modely NEJSOU podporované**
+
+EverArt API **nepodporuje** aplikování více modelů současně na jeden obrázek s různými vlivy. Každý model funguje **nezávisle**.
+
+### Možnosti:
+1. **Současná implementace** ✅ - Více modelů = více samostatných generací
+2. **Alternativní řešení** - Post-processing blending (vyžaduje externí nástroje)
+3. **Custom model training** - Natrénovat jeden model kombinující více stylů
+
+### Technické důvody:
+- EverArt API přijímá pouze `modelId` (single string)
+- Žádný parametr pro ensemble generation
+- Každé volání API = jedna generace s jedním modelem
+
+## 🎯 Doporučení
+Pro uživatele: Současný multi-model systém je správný - generuje více verzí obrázku s různými styly současně.
