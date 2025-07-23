@@ -112,13 +112,37 @@ export default function ModelsTab() {
     mutationFn: async () => {
       // Get localStorage data to sync as well
       const localStorageData = JSON.parse(localStorage.getItem('everart_generations') || '[]');
+      const applyModelData = JSON.parse(localStorage.getItem('apply_model_state') || '{}');
+      
+      // Extrahuj URL obrázků z apply model state
+      const applyModelResults = [];
+      if (applyModelData.instances && Array.isArray(applyModelData.instances)) {
+        applyModelData.instances.forEach((instance, idx) => {
+          if (instance.results && Array.isArray(instance.results)) {
+            instance.results.forEach((result, resultIdx) => {
+              if (result.resultUrl && !result.resultUrl.includes('cloudinary.com')) {
+                applyModelResults.push({
+                  id: `apply-model-${idx}-${resultIdx}-${Date.now()}`,
+                  outputImageUrl: result.resultUrl,
+                  inputImageUrl: result.originalUrl || '',
+                  modelId: instance.selectedModel?.everartId || 'unknown',
+                  createdAt: new Date().toISOString()
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Kombinuj všechna data pro synchronizaci
+      const allLocalData = [...localStorageData, ...applyModelResults];
       
       const response = await fetch(`/api/generations/sync-cloudinary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ localStorageData })
+        body: JSON.stringify({ localStorageData: allLocalData })
       });
       if (!response.ok) {
         throw new Error('Failed to sync with Cloudinary');
@@ -145,10 +169,39 @@ export default function ModelsTab() {
     const timer = setTimeout(() => {
       // Aktivně načteme existující localStorage data
       const existingLocalData = JSON.parse(localStorage.getItem('everart_generations') || '[]');
+      const applyModelData = JSON.parse(localStorage.getItem('apply_model_state') || '{}');
+      
       console.log(`Spouštím synchronizaci s ${existingLocalData.length} existujícími generacemi v localStorage`);
+      console.log('Apply model state:', applyModelData);
+      
+      // Extrahuj URL obrázků z apply model state
+      const applyModelResults = [];
+      if (applyModelData.instances && Array.isArray(applyModelData.instances)) {
+        applyModelData.instances.forEach((instance, idx) => {
+          if (instance.results && Array.isArray(instance.results)) {
+            instance.results.forEach((result, resultIdx) => {
+              if (result.resultUrl) {
+                applyModelResults.push({
+                  id: `apply-model-${idx}-${resultIdx}-${Date.now()}`,
+                  outputImageUrl: result.resultUrl,
+                  inputImageUrl: result.originalUrl || '',
+                  modelId: instance.selectedModel?.everartId || 'unknown',
+                  createdAt: new Date().toISOString()
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      console.log(`Nalezeno ${applyModelResults.length} výsledků z apply model state`);
+      
+      // Kombinuj všechna data pro synchronizaci
+      const allLocalData = [...existingLocalData, ...applyModelResults];
+      console.log(`Celkem ${allLocalData.length} obrázků k synchronizaci`);
       
       syncCloudinaryMutation.mutate();
-    }, 1000); // Delay to ensure everything is loaded
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, []);
