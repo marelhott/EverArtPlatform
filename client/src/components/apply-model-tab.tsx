@@ -575,29 +575,29 @@ export default function ApplyModelTab() {
         </div>
       </div>
       
-      <Card className="glass-card rounded-2xl overflow-hidden shadow-2xl">
-        <CardContent className="p-8">
-          <form className="space-y-8">
+      <Card className="bg-gradient-to-br from-card via-card to-card/95 border-border/50 shadow-lg">
+        <CardContent className="p-6">
+          <form className="space-y-6">
             {/* Settings */}
-            <div className="space-y-8">
+            <div className="space-y-6">
 
-              {/* Neon Settings - Two boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {/* Simple Settings - Two boxes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl mx-auto">
                 {/* Style Strength Box */}
-                <div className="glass-neon rounded-2xl p-6 animate-pulse-neon">
-                  <Label className="text-neon font-semibold text-lg mb-4 block">
-                    Síla stylu: <span className="text-metric text-neon">{styleStrength.toFixed(1)}</span>
+                <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-xl p-3 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
+                    Síla stylu: {styleStrength.toFixed(1)}
                   </Label>
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <Slider
                       value={[styleStrength]}
                       onValueChange={([value]) => form.setValue('styleStrength', value)}
                       min={0}
                       max={1}
                       step={0.1}
-                      className="w-full slider-neon"
+                      className="w-full"
                     />
-                    <div className="flex justify-between text-sm text-neon/70 mt-3">
+                    <div className="flex justify-between text-xs text-green-600 dark:text-green-400 mt-1">
                       <span>Slabý (0.0)</span>
                       <span>Silný (1.0)</span>
                     </div>
@@ -605,11 +605,11 @@ export default function ApplyModelTab() {
                 </div>
 
                 {/* Number of Images Box */}
-                <div className="glass-purple rounded-2xl p-6 animate-pulse-purple">
-                  <Label className="text-purple-neon font-semibold text-lg mb-4 block">
-                    Počet obrázků: <span className="text-metric text-purple-neon">{numImages}</span>
+                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
+                  <Label className="text-blue-700 dark:text-blue-300 font-medium text-sm">
+                    Počet obrázků: {numImages}
                   </Label>
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <Slider
                       value={[numImages]}
                       onValueChange={([value]) => form.setValue('numImages', value)}
@@ -618,7 +618,7 @@ export default function ApplyModelTab() {
                       step={1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-sm text-purple-neon/70 mt-3">
+                    <div className="flex justify-between text-xs text-blue-600 dark:text-blue-400 mt-1">
                       <span>1 obrázek</span>
                       <span>4 obrázky</span>
                     </div>
