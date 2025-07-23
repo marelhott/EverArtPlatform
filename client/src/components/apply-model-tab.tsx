@@ -114,8 +114,11 @@ export default function ApplyModelTab() {
 
   const handleImageUpload = async (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
+    console.log('Upload triggered, files:', files);
+    
     if (files && files.length > 0) {
       const file = files[0];
+      console.log('Processing file:', file.name, file.type, file.size);
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -138,37 +141,40 @@ export default function ApplyModelTab() {
       }
       
       const previewUrl = URL.createObjectURL(file);
+      console.log('Created preview URL:', previewUrl);
       
-      setInstances(prev => prev.map(instance => 
-        instance.id === instanceId 
-          ? { 
-              ...instance, 
-              inputImage: file, 
-              inputImagePreview: previewUrl,
-              imageAnalysis: null,
-              styleRecommendation: null,
-              previewUrl: null
-            }
-          : instance
-      ));
+      // Update instance immediately
+      setInstances(prev => {
+        const updated = prev.map(instance => 
+          instance.id === instanceId 
+            ? { 
+                ...instance, 
+                inputImage: file, 
+                inputImagePreview: previewUrl,
+                imageAnalysis: null,
+                styleRecommendation: null,
+                previewUrl: null
+              }
+            : instance
+        );
+        console.log('Updated instances:', updated);
+        return updated;
+      });
       
       // Toast pro úspěšné nahrání
       toast({
         title: "Obrázek nahrán",
-        description: "Začínám analýzu pro adaptivní sílu stylu..."
+        description: `Soubor ${file.name} byl úspěšně nahrán`
       });
       
-      // Analyze image for adaptive style strength
-      try {
-        await analyzeImageForAdaptiveStyle(instanceId, file);
-      } catch (error) {
-        console.error('Image analysis failed:', error);
-        toast({
-          title: "Varování",
-          description: "Analýza obrázku se nezdařila, ale obrázek byl nahrán.",
-          variant: "default"
-        });
-      }
+      // Analyze image for adaptive style strength (non-blocking)
+      setTimeout(async () => {
+        try {
+          await analyzeImageForAdaptiveStyle(instanceId, file);
+        } catch (error) {
+          console.error('Image analysis failed:', error);
+        }
+      }, 100);
     }
   };
 
@@ -993,9 +999,19 @@ export default function ApplyModelTab() {
                     )}
 
                     <div className="flex justify-center">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Debug: hasImage={!!instance.inputImage}, hasPreview={!!instance.inputImagePreview}, selectedModels={selectedModelIds.length}
+                      </div>
                       <Button 
                         type="button"
                         onClick={() => {
+                          console.log('Generate button clicked:', {
+                            hasImage: !!instance.inputImage,
+                            hasPreview: !!instance.inputImagePreview,
+                            selectedModelIds,
+                            instance
+                          });
+                          
                           if (selectedModelIds.length === 1) {
                             // Single model generation
                             const selectedModel = readyModels.find(m => m.everartId === selectedModelIds[0]);
@@ -1015,7 +1031,7 @@ export default function ApplyModelTab() {
                         disabled={
                           (selectedModelIds.length === 1 && instance.isProcessing) ||
                           (selectedModelIds.length > 1 && multiGenerateMutation.isPending) ||
-                          !instance.inputImage || 
+                          (!instance.inputImage && !instance.inputImagePreview) || 
                           selectedModelIds.length === 0
                         }
                         className="px-8 py-2"
