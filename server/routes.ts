@@ -340,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // KOMPLETNÍ synchronizace VŠECH existujících dat s Cloudinary
+  // 🚀 ULTIMÁTNÍ KOMPLETNÍ SYNCHRONIZACE - najde a nahraje VŠECHNO
   app.post("/api/generations/sync-cloudinary", async (req, res) => {
     try {
       console.log("=== ZAČÍNÁ KOMPLETNÍ SYNCHRONIZACE ===");
@@ -446,6 +446,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Kritická chyba při kompletní synchronizaci:", error);
       res.status(500).json({ message: "Kritická chyba při kompletní synchronizaci", error: error.message });
+    }
+  });
+
+  // 🎯 MANUÁLNÍ TRIGGER - Vynucená synchronizace vašich skutečných dat
+  app.post("/api/force-sync-user-data", async (req, res) => {
+    try {
+      console.log("🚀 SPOUŠTÍM MANUÁLNÍ SYNCHRONIZACI VAŠICH DAT");
+      
+      // Načti skutečná data z apply_model_state localStorage (pokud jsou poslána)
+      const { applyModelState, everartGenerations } = req.body;
+      
+      let allUserData = [];
+      let syncedCount = 0;
+      let errors = 0;
+      
+      // Zpracuj apply_model_state data
+      if (applyModelState && applyModelState.instances) {
+        console.log(`🔍 Našel jsem ${applyModelState.instances.length} instancí v apply_model_state`);
+        
+        applyModelState.instances.forEach((instance, idx) => {
+          if (instance.results && Array.isArray(instance.results)) {
+            instance.results.forEach((result, resultIdx) => {
+              if (result.resultUrl && !result.resultUrl.includes('cloudinary.com')) {
+                allUserData.push({
+                  id: `user-apply-${idx}-${resultIdx}`,
+                  outputImageUrl: result.resultUrl,
+                  inputImageUrl: result.originalUrl || '',
+                  modelId: instance.selectedModel?.everartId || 'unknown',
+                  source: 'apply_model_state'
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Zpracuj everart_generations data
+      if (everartGenerations && Array.isArray(everartGenerations)) {
+        console.log(`🔍 Našel jsem ${everartGenerations.length} generací v everart_generations`);
+        everartGenerations.forEach((gen, idx) => {
+          if (gen.outputImageUrl && !gen.outputImageUrl.includes('cloudinary.com')) {
+            allUserData.push({
+              id: `user-gen-${idx}`,
+              outputImageUrl: gen.outputImageUrl,
+              inputImageUrl: gen.inputImageUrl || '',
+              modelId: gen.modelId || 'unknown',
+              source: 'everart_generations'
+            });
+          }
+        });
+      }
+      
+      console.log(`📊 CELKEM NALEZENO: ${allUserData.length} vašich obrázků k synchronizaci`);
+      
+      // Synchronizuj všechny nalezené obrázky
+      for (const userData of allUserData) {
+        try {
+          console.log(`🔄 Syncing ${userData.source}: ${userData.outputImageUrl}`);
+          
+          if (CloudinaryService.isConfigured()) {
+            const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+              userData.outputImageUrl,
+              'everart-generations'
+            );
+            
+            // Vytvoř databázový záznam
+            await storage.createGeneration({
+              modelId: userData.modelId,
+              inputImageUrl: userData.inputImageUrl,
+              status: 'COMPLETED',
+              styleStrength: 0.7,
+              width: 1024,
+              height: 1024,
+              outputImageUrl: cloudinaryResult.secure_url
+            });
+            
+            syncedCount++;
+            console.log(`✅ ${userData.source} obrázek synchronizován: ${cloudinaryResult.secure_url}`);
+          }
+        } catch (syncError) {
+          errors++;
+          console.error(`❌ Chyba při synchronizaci ${userData.source}:`, syncError);
+        }
+      }
+      
+      console.log(`🎉 MANUÁLNÍ SYNCHRONIZACE DOKONČENA: ${syncedCount} úspěch, ${errors} chyb`);
+      
+      res.json({
+        success: true,
+        synced: syncedCount,
+        errors: errors,
+        totalFound: allUserData.length,
+        message: `Vaše data: ${syncedCount} obrázků nahráno do Cloudinary, ${errors} chyb ze ${allUserData.length} nalezených`
+      });
+      
+    } catch (error: any) {
+      console.error("💥 Kritická chyba v manuální synchronizaci:", error);
+      res.status(500).json({ message: "Manuální synchronizace selhala", error: error.message });
     }
   });
 
