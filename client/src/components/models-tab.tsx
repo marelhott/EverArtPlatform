@@ -115,11 +115,11 @@ export default function ModelsTab() {
       const applyModelData = JSON.parse(localStorage.getItem('apply_model_state') || '{}');
       
       // Extrahuj URL obrázků z apply model state
-      const applyModelResults = [];
+      const applyModelResults: any[] = [];
       if (applyModelData.instances && Array.isArray(applyModelData.instances)) {
-        applyModelData.instances.forEach((instance, idx) => {
+        applyModelData.instances.forEach((instance: any, idx: number) => {
           if (instance.results && Array.isArray(instance.results)) {
-            instance.results.forEach((result, resultIdx) => {
+            instance.results.forEach((result: any, resultIdx: number) => {
               if (result.resultUrl && !result.resultUrl.includes('cloudinary.com')) {
                 applyModelResults.push({
                   id: `apply-model-${idx}-${resultIdx}-${Date.now()}`,
@@ -175,11 +175,11 @@ export default function ModelsTab() {
       console.log('Apply model state:', applyModelData);
       
       // Extrahuj URL obrázků z apply model state
-      const applyModelResults = [];
+      const applyModelResults: any[] = [];
       if (applyModelData.instances && Array.isArray(applyModelData.instances)) {
-        applyModelData.instances.forEach((instance, idx) => {
+        applyModelData.instances.forEach((instance: any, idx: number) => {
           if (instance.results && Array.isArray(instance.results)) {
-            instance.results.forEach((result, resultIdx) => {
+            instance.results.forEach((result: any, resultIdx: number) => {
               if (result.resultUrl) {
                 applyModelResults.push({
                   id: `apply-model-${idx}-${resultIdx}-${Date.now()}`,

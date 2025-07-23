@@ -340,26 +340,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sync existing generations with Cloudinary (including localStorage data)
+  // KOMPLETNÍ synchronizace VŠECH existujících dat s Cloudinary
   app.post("/api/generations/sync-cloudinary", async (req, res) => {
     try {
+      console.log("=== ZAČÍNÁ KOMPLETNÍ SYNCHRONIZACE ===");
+      
       // Get both database and localStorage generations
       const dbGenerations = await storage.getAllGenerations();
-      const { localStorageData } = req.body || {};
+      const { localStorageData = [] } = req.body || {};
       
       let syncedCount = 0;
-      let errors = 0;
+      let errors = 0;  
       let processedUrls = new Set();
+      let detailedLog = [];
 
-      console.log(`Starting sync: ${dbGenerations.length} DB generations, ${localStorageData?.length || 0} localStorage generations`);
+      console.log(`Databáze generací: ${dbGenerations.length}`);
+      console.log(`LocalStorage data: ${localStorageData.length}`);
 
-      // Process database generations
+      // 1. SYNCHRONIZACE DATABÁZOVÝCH GENERACÍ
+      console.log("--- Synchronizace databázových generací ---");
       for (const generation of dbGenerations) {
         if (generation.outputImageUrl && 
             !generation.outputImageUrl.includes('cloudinary.com') &&
             !processedUrls.has(generation.outputImageUrl)) {
           
           processedUrls.add(generation.outputImageUrl);
+          console.log(`DB: Zpracovávám ${generation.outputImageUrl}`);
           
           try {
             if (CloudinaryService.isConfigured()) {
@@ -373,66 +379,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               
               syncedCount++;
-              console.log(`Synced DB generation ${generation.id} to Cloudinary: ${cloudinaryResult.secure_url}`);
+              detailedLog.push(`✓ DB gen ${generation.id}: ${cloudinaryResult.secure_url}`);
+              console.log(`✓ DB generace ${generation.id} synchronizována`);
             }
           } catch (syncError) {
-            console.error(`Failed to sync DB generation ${generation.id}:`, syncError);
             errors++;
+            detailedLog.push(`✗ DB gen ${generation.id}: ${syncError.message}`);
+            console.error(`✗ Chyba pri synchronizaci DB generace ${generation.id}:`, syncError);
           }
         }
       }
 
-      // Process localStorage generations (if provided)
-      if (localStorageData && Array.isArray(localStorageData)) {
-        for (const localGen of localStorageData) {
-          if (localGen.outputImageUrl && 
-              !localGen.outputImageUrl.includes('cloudinary.com') &&
-              !processedUrls.has(localGen.outputImageUrl)) {
-            
-            processedUrls.add(localGen.outputImageUrl);
-            
-            try {
-              if (CloudinaryService.isConfigured()) {
-                const cloudinaryResult = await CloudinaryService.uploadFromUrl(
-                  localGen.outputImageUrl,
-                  'everart-generations'
-                );
-                
-                // Create a database entry for this localStorage generation
-                const newGeneration = await storage.createGeneration({
-                  modelId: localGen.modelId,
-                  inputImageUrl: localGen.inputImageUrl || '',
-                  status: "COMPLETED",
-                  styleStrength: 0.7,
-                  width: 1024,
-                  height: 1024
-                });
-                
-                // Update with Cloudinary URL
-                await storage.updateGeneration(newGeneration.id, {
-                  outputImageUrl: cloudinaryResult.secure_url
-                });
-                
-                syncedCount++;
-                console.log(`Synced localStorage generation to Cloudinary: ${cloudinaryResult.secure_url}`);
-              }
-            } catch (syncError) {
-              console.error(`Failed to sync localStorage generation:`, syncError);
-              errors++;
+      // 2. SYNCHRONIZACE LOCALSTORAGE DAT (včetně apply_model_state) 
+      console.log("--- Synchronizace localStorage dat ---");
+      for (const localData of localStorageData) {
+        if (localData.outputImageUrl && 
+            !localData.outputImageUrl.includes('cloudinary.com') &&
+            !processedUrls.has(localData.outputImageUrl)) {
+          
+          processedUrls.add(localData.outputImageUrl);
+          console.log(`LocalStorage: Zpracovávám ${localData.outputImageUrl}`);
+          
+          try {
+            if (CloudinaryService.isConfigured()) {
+              const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                localData.outputImageUrl,
+                'everart-generations'
+              );
+              
+              // Vytvoř novou databázovou položku pro localStorage data
+              const newGeneration = await storage.createGeneration({
+                modelId: localData.modelId || '',
+                inputImageUrl: localData.inputImageUrl || '',
+                status: 'COMPLETED',
+                styleStrength: localData.styleStrength || 0.7,
+                width: localData.width || 1024,
+                height: localData.height || 1024,
+                outputImageUrl: cloudinaryResult.secure_url
+              });
+              
+              syncedCount++;
+              detailedLog.push(`✓ LocalStorage: ${cloudinaryResult.secure_url}`);
+              console.log(`✓ LocalStorage obrázek synchronizován jako generace ${newGeneration.id}`);
             }
+          } catch (syncError) {
+            errors++;
+            detailedLog.push(`✗ LocalStorage: ${syncError.message}`);
+            console.error(`✗ Chyba při synchronizaci localStorage dat:`, syncError);
           }
         }
       }
+
+      console.log("=== SYNCHRONIZACE DOKONČENA ===");
+      console.log(`Celkem synchronizováno: ${syncedCount}`);
+      console.log(`Chyby: ${errors}`);
+      console.log(`Zpracované URL: ${processedUrls.size}`);
 
       res.json({ 
         success: true, 
         synced: syncedCount, 
         errors: errors,
-        message: `Synchronizováno ${syncedCount} obrázků do Cloudinary, ${errors} chyb`
+        totalProcessed: processedUrls.size,
+        detailedLog: detailedLog,
+        message: `KOMPLETNÍ SYNCHRONIZACE: ${syncedCount} obrázků nahráno, ${errors} chyb, ${processedUrls.size} unikátních URL`
       });
-    } catch (error) {
-      console.error("Error syncing generations:", error);
-      res.status(500).json({ message: "Nepodařilo se synchronizovat obrázky" });
+    } catch (error: any) {
+      console.error("Kritická chyba při kompletní synchronizaci:", error);
+      res.status(500).json({ message: "Kritická chyba při kompletní synchronizaci", error: error.message });
     }
   });
 
