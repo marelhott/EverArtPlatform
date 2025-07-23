@@ -279,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   cloudinaryUrls.push(...successfulGenerations);
                 }
 
-                const finalImageUrl = cloudinaryUrls[0]?.image_url || successfulGenerations[0].image_url;
+                const finalImageUrl = cloudinaryUrls[0]?.image_url || (successfulGenerations[0]?.image_url ?? '');
 
                 // Update our local generation with the final result URL
                 const updatedGeneration = await storage.updateGeneration(generation.id, {
@@ -340,15 +340,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Sync existing generations with Cloudinary
+  // Sync existing generations with Cloudinary (including localStorage data)
   app.post("/api/generations/sync-cloudinary", async (req, res) => {
     try {
-      const generations = await storage.getAllGenerations();
+      // Get both database and localStorage generations
+      const dbGenerations = await storage.getAllGenerations();
+      const { localStorageData } = req.body || {};
+      
       let syncedCount = 0;
       let errors = 0;
+      let processedUrls = new Set();
 
-      for (const generation of generations) {
-        if (generation.outputImageUrl && !generation.outputImageUrl.includes('cloudinary.com')) {
+      console.log(`Starting sync: ${dbGenerations.length} DB generations, ${localStorageData?.length || 0} localStorage generations`);
+
+      // Process database generations
+      for (const generation of dbGenerations) {
+        if (generation.outputImageUrl && 
+            !generation.outputImageUrl.includes('cloudinary.com') &&
+            !processedUrls.has(generation.outputImageUrl)) {
+          
+          processedUrls.add(generation.outputImageUrl);
+          
           try {
             if (CloudinaryService.isConfigured()) {
               const cloudinaryResult = await CloudinaryService.uploadFromUrl(
@@ -361,11 +373,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
               });
               
               syncedCount++;
-              console.log(`Synced generation ${generation.id} to Cloudinary`);
+              console.log(`Synced DB generation ${generation.id} to Cloudinary: ${cloudinaryResult.secure_url}`);
             }
           } catch (syncError) {
-            console.error(`Failed to sync generation ${generation.id}:`, syncError);
+            console.error(`Failed to sync DB generation ${generation.id}:`, syncError);
             errors++;
+          }
+        }
+      }
+
+      // Process localStorage generations (if provided)
+      if (localStorageData && Array.isArray(localStorageData)) {
+        for (const localGen of localStorageData) {
+          if (localGen.outputImageUrl && 
+              !localGen.outputImageUrl.includes('cloudinary.com') &&
+              !processedUrls.has(localGen.outputImageUrl)) {
+            
+            processedUrls.add(localGen.outputImageUrl);
+            
+            try {
+              if (CloudinaryService.isConfigured()) {
+                const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                  localGen.outputImageUrl,
+                  'everart-generations'
+                );
+                
+                // Create a database entry for this localStorage generation
+                const newGeneration = await storage.createGeneration({
+                  modelId: localGen.modelId,
+                  inputImageUrl: localGen.inputImageUrl || '',
+                  status: "COMPLETED",
+                  styleStrength: 0.7,
+                  width: 1024,
+                  height: 1024
+                });
+                
+                // Update with Cloudinary URL
+                await storage.updateGeneration(newGeneration.id, {
+                  outputImageUrl: cloudinaryResult.secure_url
+                });
+                
+                syncedCount++;
+                console.log(`Synced localStorage generation to Cloudinary: ${cloudinaryResult.secure_url}`);
+              }
+            } catch (syncError) {
+              console.error(`Failed to sync localStorage generation:`, syncError);
+              errors++;
+            }
           }
         }
       }
@@ -374,7 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         synced: syncedCount, 
         errors: errors,
-        message: `Synchronizováno ${syncedCount} obrázků, ${errors} chyb`
+        message: `Synchronizováno ${syncedCount} obrázků do Cloudinary, ${errors} chyb`
       });
     } catch (error) {
       console.error("Error syncing generations:", error);
@@ -514,9 +568,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateGeneration(generation.id, { status: "FAILED" });
             return { modelId, success: false, error: "No generations returned" };
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`Error processing model ${modelId}:`, error);
-          return { modelId, success: false, error: error.message };
+          return { modelId, success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
       });
 
@@ -529,11 +583,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Zpracováno ${results.filter(r => r.success).length}/${results.length} modelů`
       });
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error in multi-model generation:", error);
       res.status(500).json({ 
         message: "Nepodařilo se aplikovat modely",
-        error: error.message 
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });

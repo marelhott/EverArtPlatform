@@ -34,16 +34,18 @@ export default function ModelsTab() {
       return response.json();
     },
     onSuccess: () => {
+      // Force refresh the models list
       queryClient.invalidateQueries({ queryKey: ['/api/models'] });
+      refetch();
       toast({
-        title: "Model smazán",
-        description: "Model byl úspěšně odstraněn"
+        title: "Model odebrán",
+        description: "Model byl úspěšně odebrán z aplikace"
       });
     },
     onError: () => {
       toast({
         title: "Chyba",
-        description: "Nepodařilo se smazat model",
+        description: "Nepodařilo se odebrat model",
         variant: "destructive"
       });
     }
@@ -105,11 +107,18 @@ export default function ModelsTab() {
     }
   };
 
-  // Automatická synchronizace při načtení
+  // Automatická synchronizace při načtení (včetně localStorage dat)
   const syncCloudinaryMutation = useMutation({
     mutationFn: async () => {
+      // Get localStorage data to sync as well
+      const localStorageData = JSON.parse(localStorage.getItem('everart_generations') || '[]');
+      
       const response = await fetch(`/api/generations/sync-cloudinary`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ localStorageData })
       });
       if (!response.ok) {
         throw new Error('Failed to sync with Cloudinary');
@@ -119,6 +128,10 @@ export default function ModelsTab() {
     onSuccess: (data) => {
       if (data.synced > 0) {
         console.log(`Automaticky synchronizováno ${data.synced} obrázků s Cloudinary`);
+        toast({
+          title: "Synchronizace dokončena",
+          description: `Synchronizováno ${data.synced} obrázků do Cloudinary`
+        });
       }
     },
     onError: (error) => {
@@ -128,10 +141,13 @@ export default function ModelsTab() {
 
   // Spustit automatickou synchronizaci při prvním načtení
   useEffect(() => {
-    if (models.length > 0) {
+    // Spustit synchronizaci vždy při načtení stránky
+    const timer = setTimeout(() => {
       syncCloudinaryMutation.mutate();
-    }
-  }, [models.length]);
+    }, 1000); // Delay to ensure everything is loaded
+
+    return () => clearTimeout(timer);
+  }, []);
 
   if (error) {
     return (
