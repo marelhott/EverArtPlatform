@@ -55,6 +55,48 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Fix for elements not showing until fullscreen */
+  .opacity-0 {
+    opacity: 0 !important;
+  }
+
+  .opacity-100 {
+    opacity: 1 !important;
+  }
+
+  /* Ensure all containers have proper sizing */
+  .container {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Force proper rendering of grid and flex items */
+  .grid {
+    display: grid;
+  }
+
+  .flex {
+    display: flex;
+  }
+
+  /* Ensure images load properly */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Force proper rendering of all elements */
+  div, section, article, main {
+    box-sizing: border-box;
   }
 }
 

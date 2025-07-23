@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, Brain, Eye, Sparkles } from "lucide-react";
+import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, Brain, Layers, Sparkles, Gauge, Sliders, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -114,11 +114,9 @@ export default function ApplyModelTab() {
 
   const handleImageUpload = async (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    console.log('Upload triggered, files:', files);
     
     if (files && files.length > 0) {
       const file = files[0];
-      console.log('Processing file:', file.name, file.type, file.size);
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -141,25 +139,20 @@ export default function ApplyModelTab() {
       }
       
       const previewUrl = URL.createObjectURL(file);
-      console.log('Created preview URL:', previewUrl);
       
       // Update instance immediately
-      setInstances(prev => {
-        const updated = prev.map(instance => 
-          instance.id === instanceId 
-            ? { 
-                ...instance, 
-                inputImage: file, 
-                inputImagePreview: previewUrl,
-                imageAnalysis: null,
-                styleRecommendation: null,
-                previewUrl: null
-              }
-            : instance
-        );
-        console.log('Updated instances:', updated);
-        return updated;
-      });
+      setInstances(prev => prev.map(instance => 
+        instance.id === instanceId 
+          ? { 
+              ...instance, 
+              inputImage: file, 
+              inputImagePreview: previewUrl,
+              imageAnalysis: null,
+              styleRecommendation: null,
+              previewUrl: null
+            }
+          : instance
+      ));
       
       // Toast pro úspěšné nahrání
       toast({
@@ -749,66 +742,31 @@ export default function ApplyModelTab() {
                   </div>
                 </div>
 
-                {/* Real-time Preview Box */}
-                <div className="bg-gradient-to-br from-purple-50 via-purple-100 to-purple-50 dark:from-purple-900/20 dark:via-purple-800/20 dark:to-purple-900/20 rounded-xl p-3 border border-purple-200/50 dark:border-purple-700/50 shadow-sm backdrop-blur-sm">
+                {/* Progressive Generation Info */}
+                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-purple-700 dark:text-purple-300 font-medium text-sm">
-                      Náhled v reálném čase
+                    <Label className="text-blue-700 dark:text-blue-300 font-medium text-sm">
+                      Progresivní generování
                     </Label>
                     <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                      <Badge variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600">
-                        Preview
+                      <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600">
+                        V reálném čase
                       </Badge>
                     </div>
                   </div>
                   
-                  {instances[0]?.inputImage && instances[0]?.selectedModel ? (
-                    <div className="space-y-2">
-                      <Button
-                        type="button"
-                        onClick={() => generateRealtimePreview(instances[0].id)}
-                        disabled={instances[0].isGeneratingPreview}
-                        className="w-full text-xs"
-                        size="sm"
-                        variant="outline"
-                      >
-                        {instances[0].isGeneratingPreview ? (
-                          <>
-                            <Sparkles className="mr-2 h-3 w-3 animate-spin" />
-                            Generuji náhled...
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="mr-2 h-3 w-3" />
-                            Vygenerovat náhled
-                          </>
-                        )}
-                      </Button>
-                      
-                      {instances[0].isGeneratingPreview && (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-purple-600 dark:text-purple-400">
-                            <span>Náhled</span>
-                            <span>{instances[0].previewProgress}%</span>
-                          </div>
-                          <Progress value={instances[0].previewProgress} className="h-1" />
-                        </div>
-                      )}
-                      
-                      {instances[0].previewUrl && (
-                        <div className="mt-2 relative">
-                          <div className="w-full h-16 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-700 flex items-center justify-center">
-                            <span className="text-xs text-purple-600 dark:text-purple-400">Náhled připraven</span>
-                          </div>
-                        </div>
-                      )}
+                  <div className="space-y-2">
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                      • Vizuální náhled během generování
                     </div>
-                  ) : (
-                    <div className="text-xs text-purple-600 dark:text-purple-400 text-center py-2">
-                      Nahrajte obrázek a vyberte model pro náhled
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                      • Sledování postupu pro každý obrázek
                     </div>
-                  )}
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                      • Automatické ukládání do cloudu
+                    </div>
+                  </div>
                 </div>
 
                 {/* Number of Images Box */}
@@ -962,6 +920,23 @@ export default function ApplyModelTab() {
                                   className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                                   onClick={() => setEnlargedImage(instance.results[i].resultUrl)}
                                 />
+                              ) : instance.isProcessing ? (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground relative">
+                                  {/* Progressive loading effect */}
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/20 to-transparent animate-pulse"></div>
+                                  <div className="text-center z-10">
+                                    <div className="w-8 h-8 mx-auto mb-2 bg-primary/20 rounded-lg flex items-center justify-center animate-pulse">
+                                      <Wand2 className="h-4 w-4 text-primary animate-spin" />
+                                    </div>
+                                    <div className="text-xs text-primary">Generuji {i + 1}</div>
+                                    <div className="w-full bg-primary/20 rounded-full h-1 mt-1">
+                                      <div 
+                                        className="bg-primary h-1 rounded-full transition-all duration-1000"
+                                        style={{ width: `${Math.min(instance.processingProgress, 100)}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                </div>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                                   <div className="text-center">
@@ -1014,16 +989,11 @@ export default function ApplyModelTab() {
                       <Button 
                         type="button"
                         onClick={() => {
-                          console.log('Generate button clicked:', {
-                            hasImage: !!instance.inputImage,
-                            hasPreview: !!instance.inputImagePreview,
-                            selectedModelIds,
-                            instance
-                          });
+
                           
                           if (selectedModelIds.length === 1) {
                             // Single model generation
-                            const selectedModel = readyModels.find(m => m.everartId === selectedModelIds[0]);
+                            const selectedModel = readyModels.find((m: Model) => m.everartId === selectedModelIds[0]);
                             if (selectedModel) {
                               setInstances(prev => prev.map(inst => 
                                 inst.id === instance.id 
