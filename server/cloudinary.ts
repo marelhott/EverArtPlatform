@@ -70,11 +70,28 @@ export class CloudinaryService {
   }
 
   static isConfigured(): boolean {
-    return !!(
+    const configured = !!(
       process.env.CLOUDINARY_CLOUD_NAME &&
       process.env.CLOUDINARY_API_KEY &&
       process.env.CLOUDINARY_API_SECRET
     );
+    console.log(`Cloudinary configured: ${configured}, cloud: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+    return configured;
+  }
+
+  static async listImages(folderPath: string = 'everart-generations'): Promise<any> {
+    try {
+      const result = await cloudinary.api.resources({
+        type: 'upload',
+        prefix: folderPath,
+        max_results: 50
+      });
+      console.log(`Found ${result.resources.length} images in ${folderPath} folder`);
+      return result;
+    } catch (error) {
+      console.error('Failed to list Cloudinary images:', error);
+      throw error;
+    }
   }
 }
 
