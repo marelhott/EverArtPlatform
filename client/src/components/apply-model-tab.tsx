@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, Brain, Eye, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, LocalGeneration, loadApplyModelState, saveApplyModelState } from "@/lib/localStorage";
+import { AdaptiveStyleCalculator, PreviewGenerator, type ImageAnalysis, type StyleRecommendation } from "@/lib/adaptive-style";
 
 interface Model {
   id: number;
@@ -59,6 +61,13 @@ interface GenerationInstance {
   results: { originalUrl: string; resultUrl: string }[];
   selectedResultIndex: number;
   selectedModel: Model | null;
+  // New adaptive style features
+  imageAnalysis: ImageAnalysis | null;
+  styleRecommendation: StyleRecommendation | null;
+  previewUrl: string | null;
+  previewProgress: number;
+  isGeneratingPreview: boolean;
+  adaptiveStrengthEnabled: boolean;
 }
 
 export default function ApplyModelTab() {
@@ -71,7 +80,13 @@ export default function ApplyModelTab() {
       processingProgress: 0,
       results: [],
       selectedResultIndex: 0,
-      selectedModel: null
+      selectedModel: null,
+      imageAnalysis: null,
+      styleRecommendation: null,
+      previewUrl: null,
+      previewProgress: 0,
+      isGeneratingPreview: false,
+      adaptiveStrengthEnabled: true
     }
   ]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
@@ -84,7 +99,7 @@ export default function ApplyModelTab() {
     enabled: true
   });
 
-  const readyModels = modelsData?.models?.filter((model: Model) => 
+  const readyModels = (modelsData as any)?.models?.filter((model: Model) => 
     model.status === 'COMPLETED' || model.status === 'READY'
   ) || [];
 
@@ -97,7 +112,7 @@ export default function ApplyModelTab() {
     }
   });
 
-  const handleImageUpload = (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (instanceId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
@@ -105,13 +120,23 @@ export default function ApplyModelTab() {
       
       setInstances(prev => prev.map(instance => 
         instance.id === instanceId 
-          ? { ...instance, inputImage: file, inputImagePreview: previewUrl }
+          ? { 
+              ...instance, 
+              inputImage: file, 
+              inputImagePreview: previewUrl,
+              imageAnalysis: null,
+              styleRecommendation: null,
+              previewUrl: null
+            }
           : instance
       ));
+      
+      // Analyze image for adaptive style strength
+      await analyzeImageForAdaptiveStyle(instanceId, file);
     }
   };
 
-  const handleImageDrop = (instanceId: string, event: React.DragEvent<HTMLDivElement>) => {
+  const handleImageDrop = async (instanceId: string, event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const files = event.dataTransfer.files;
     if (files && files.length > 0) {
@@ -120,9 +145,19 @@ export default function ApplyModelTab() {
       
       setInstances(prev => prev.map(instance => 
         instance.id === instanceId 
-          ? { ...instance, inputImage: file, inputImagePreview: previewUrl }
+          ? { 
+              ...instance, 
+              inputImage: file, 
+              inputImagePreview: previewUrl,
+              imageAnalysis: null,
+              styleRecommendation: null,
+              previewUrl: null
+            }
           : instance
       ));
+      
+      // Analyze image for adaptive style strength
+      await analyzeImageForAdaptiveStyle(instanceId, file);
     }
   };
 
@@ -146,7 +181,13 @@ export default function ApplyModelTab() {
         processingProgress: 0,
         results: [],
         selectedResultIndex: 0,
-        selectedModel: null
+        selectedModel: null,
+        imageAnalysis: null,
+        styleRecommendation: null,
+        previewUrl: null,
+        previewProgress: 0,
+        isGeneratingPreview: false,
+        adaptiveStrengthEnabled: true
       };
       setInstances(prev => [...prev, newInstance]);
     }
@@ -190,29 +231,29 @@ export default function ApplyModelTab() {
         let newResults: { originalUrl: string; resultUrl: string }[] = [];
         
         // Handle multiple results if available
-        if (data.generations && data.generations.length > 0) {
-          newResults = data.generations
+        if ((data as any).generations && (data as any).generations.length > 0) {
+          newResults = (data as any).generations
             .filter((gen: any) => gen.image_url && !gen.failed)
             .map((gen: any) => ({
               originalUrl: instance.inputImagePreview,
               resultUrl: gen.image_url
             }));
-        } else if (data.generation && data.generation.outputImageUrl) {
+        } else if ((data as any).generation && (data as any).generation.outputImageUrl) {
           newResults = [{
             originalUrl: instance.inputImagePreview,
-            resultUrl: data.generation.outputImageUrl
+            resultUrl: (data as any).generation.outputImageUrl
           }];
-        } else if (data.resultUrl) {
+        } else if ((data as any).resultUrl) {
           newResults = [{
             originalUrl: instance.inputImagePreview,
-            resultUrl: data.resultUrl
+            resultUrl: (data as any).resultUrl
           }];
         }
         
         // Save to localStorage
         if (instance.selectedModel) {
-          if (data.generations && data.generations.length > 0) {
-            data.generations.forEach((gen: any, index: number) => {
+          if ((data as any).generations && (data as any).generations.length > 0) {
+            (data as any).generations.forEach((gen: any, index: number) => {
               if (gen.image_url && !gen.failed) {
                 const localGeneration: LocalGeneration = {
                   id: `${Date.now()}-${index}-${instanceId}`,
@@ -224,19 +265,19 @@ export default function ApplyModelTab() {
                 localGenerationsStorage.saveGeneration(localGeneration);
               }
             });
-          } else if (data.generation && data.generation.outputImageUrl) {
+          } else if ((data as any).generation && (data as any).generation.outputImageUrl) {
             const localGeneration: LocalGeneration = {
               id: `${Date.now()}-${instanceId}`,
-              outputImageUrl: data.generation.outputImageUrl,
+              outputImageUrl: (data as any).generation.outputImageUrl,
               inputImageUrl: instance.inputImagePreview,
               modelId: instance.selectedModel.everartId,
               createdAt: new Date().toISOString()
             };
             localGenerationsStorage.saveGeneration(localGeneration);
-          } else if (data.resultUrl) {
+          } else if ((data as any).resultUrl) {
             const localGeneration: LocalGeneration = {
               id: `${Date.now()}-${instanceId}`,
-              outputImageUrl: data.resultUrl,
+              outputImageUrl: (data as any).resultUrl,
               inputImageUrl: instance.inputImagePreview,
               modelId: instance.selectedModel.everartId,
               createdAt: new Date().toISOString()
@@ -266,6 +307,84 @@ export default function ApplyModelTab() {
       ));
     }
   });
+
+  // Adaptive style functions
+  const analyzeImageForAdaptiveStyle = useCallback(async (instanceId: string, imageFile: File) => {
+    try {
+      const analysis = await AdaptiveStyleCalculator.analyzeImage(imageFile);
+      const selectedModel = instances.find(i => i.id === instanceId)?.selectedModel;
+      const recommendation = AdaptiveStyleCalculator.calculateOptimalStrength(
+        analysis, 
+        selectedModel?.type || 'STYLE'
+      );
+
+      setInstances(prev => prev.map(instance => 
+        instance.id === instanceId 
+          ? { ...instance, imageAnalysis: analysis, styleRecommendation: recommendation }
+          : instance
+      ));
+
+      // Auto-apply recommended strength if adaptive mode is enabled
+      const currentInstance = instances.find(i => i.id === instanceId);
+      if (currentInstance?.adaptiveStrengthEnabled && recommendation.strength !== form.getValues('styleStrength')) {
+        form.setValue('styleStrength', recommendation.strength);
+        toast({
+          title: "Adaptivní síla stylu",
+          description: `Automaticky nastavena síla ${Math.round(recommendation.strength * 100)}% - ${recommendation.reasoning}`,
+        });
+      }
+    } catch (error) {
+      console.error('Image analysis failed:', error);
+    }
+  }, [instances, form, toast]);
+
+  const generateRealtimePreview = async (instanceId: string) => {
+    const instance = instances.find(i => i.id === instanceId);
+    if (!instance?.inputImage || !instance.selectedModel) return;
+
+    setInstances(prev => prev.map(i => 
+      i.id === instanceId 
+        ? { ...i, isGeneratingPreview: true, previewProgress: 0 }
+        : i
+    ));
+
+    try {
+      const previewUrl = await PreviewGenerator.generatePreview(
+        instance.inputImage,
+        instance.selectedModel.everartId,
+        form.getValues('styleStrength'),
+        (progress) => {
+          setInstances(prev => prev.map(i => 
+            i.id === instanceId 
+              ? { ...i, previewProgress: progress }
+              : i
+          ));
+        }
+      );
+
+      setInstances(prev => prev.map(i => 
+        i.id === instanceId 
+          ? { ...i, previewUrl, isGeneratingPreview: false }
+          : i
+      ));
+
+    } catch (error) {
+      setInstances(prev => prev.map(i => 
+        i.id === instanceId 
+          ? { ...i, isGeneratingPreview: false }
+          : i
+      ));
+      console.error('Preview generation failed:', error);
+    }
+  };
+
+  const toggleAdaptiveStrength = (instanceId: string) => {
+    setInstances(prev => prev.map(instance => 
+      instance.id === instanceId 
+        ? { ...instance, adaptiveStrengthEnabled: !instance.adaptiveStrengthEnabled }
+        : instance
+    ));
+  };
 
   const multiGenerateMutation = useMutation({
     mutationFn: async (data: { modelIds: string[]; styleStrength: number; inputImage: File }) => {
@@ -510,13 +629,21 @@ export default function ApplyModelTab() {
             {/* Settings */}
             <div className="space-y-6">
 
-              {/* Settings - Two separate boxes - 30% smaller */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl mx-auto">
-                {/* Style Strength Box */}
+              {/* Advanced Settings - Three boxes */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-6xl mx-auto">
+                {/* Style Strength Box with Adaptive Features */}
                 <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-xl p-3 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
-                  <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
-                    Síla stylu: {styleStrength.toFixed(1)}
-                  </Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
+                      Síla stylu: {styleStrength.toFixed(1)}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-600">
+                        Adaptivní
+                      </Badge>
+                    </div>
+                  </div>
                   <div className="mt-2">
                     <Slider
                       value={[styleStrength]}
@@ -530,7 +657,79 @@ export default function ApplyModelTab() {
                       <span>Slabý (0.0)</span>
                       <span>Silný (1.0)</span>
                     </div>
+                    {/* Adaptive recommendation display */}
+                    {instances[0]?.styleRecommendation && (
+                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
+                        <div className="text-xs text-green-700 dark:text-green-300">
+                          <div className="font-medium">Doporučení AI: {Math.round(instances[0].styleRecommendation.strength * 100)}%</div>
+                          <div className="text-green-600 dark:text-green-400 mt-1">{instances[0].styleRecommendation.reasoning}</div>
+                          <div className="text-green-500 dark:text-green-500 mt-1">Spolehlivost: {Math.round(instances[0].styleRecommendation.confidence * 100)}%</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* Real-time Preview Box */}
+                <div className="bg-gradient-to-br from-purple-50 via-purple-100 to-purple-50 dark:from-purple-900/20 dark:via-purple-800/20 dark:to-purple-900/20 rounded-xl p-3 border border-purple-200/50 dark:border-purple-700/50 shadow-sm backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-purple-700 dark:text-purple-300 font-medium text-sm">
+                      Náhled v reálném čase
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                      <Badge variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600">
+                        Preview
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {instances[0]?.inputImage && instances[0]?.selectedModel ? (
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        onClick={() => generateRealtimePreview(instances[0].id)}
+                        disabled={instances[0].isGeneratingPreview}
+                        className="w-full text-xs"
+                        size="sm"
+                        variant="outline"
+                      >
+                        {instances[0].isGeneratingPreview ? (
+                          <>
+                            <Sparkles className="mr-2 h-3 w-3 animate-spin" />
+                            Generuji náhled...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="mr-2 h-3 w-3" />
+                            Vygenerovat náhled
+                          </>
+                        )}
+                      </Button>
+                      
+                      {instances[0].isGeneratingPreview && (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-purple-600 dark:text-purple-400">
+                            <span>Náhled</span>
+                            <span>{instances[0].previewProgress}%</span>
+                          </div>
+                          <Progress value={instances[0].previewProgress} className="h-1" />
+                        </div>
+                      )}
+                      
+                      {instances[0].previewUrl && (
+                        <div className="mt-2 relative">
+                          <div className="w-full h-16 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-700 flex items-center justify-center">
+                            <span className="text-xs text-purple-600 dark:text-purple-400">Náhled připraven</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-purple-600 dark:text-purple-400 text-center py-2">
+                      Nahrajte obrázek a vyberte model pro náhled
+                    </div>
+                  )}
                 </div>
 
                 {/* Number of Images Box */}
@@ -560,10 +759,36 @@ export default function ApplyModelTab() {
             <div className="space-y-6">
               {instances.map((instance, index) => (
                 <div key={instance.id} className="relative">
-                  {/* Instance Header */}
+                  {/* Instance Header with Adaptive Controls */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Instance {index + 1}</h3>
+                    <div>
+                      <h3 className="text-lg font-semibold">Instance {index + 1}</h3>
+                      {instance.imageAnalysis && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            <Brain className="h-3 w-3 mr-1" />
+                            Analyzován
+                          </Badge>
+                          {instance.styleRecommendation && (
+                            <Badge variant="outline" className="text-xs">
+                              AI doporučuje: {Math.round(instance.styleRecommendation.strength * 100)}%
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex gap-2">
+                      {instance.inputImage && (
+                        <Button 
+                          type="button"
+                          onClick={() => toggleAdaptiveStrength(instance.id)}
+                          variant={instance.adaptiveStrengthEnabled ? "default" : "outline"}
+                          size="sm"
+                        >
+                          <Brain className="h-4 w-4 mr-1" />
+                          {instance.adaptiveStrengthEnabled ? "Adaptivní ON" : "Adaptivní OFF"}
+                        </Button>
+                      )}
                       {instances.length < 3 && index === instances.length - 1 && (
                         <Button 
                           type="button"
@@ -590,7 +815,7 @@ export default function ApplyModelTab() {
 
                   {/* Image Upload and Results */}
                   <div className="flex gap-4">
-                    {/* Input Image - Left side, small */}
+                    {/* Input Image with Analysis Info */}
                     <div className="flex-shrink-0">
                       <div 
                         className="relative w-24 h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors bg-muted/30"
@@ -604,6 +829,11 @@ export default function ApplyModelTab() {
                               alt="Input" 
                               className="w-full h-full object-cover rounded-lg"
                             />
+                            {instance.imageAnalysis && (
+                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
+                                <Brain className="h-2 w-2 text-white" />
+                              </div>
+                            )}
                             <Button
                               type="button"
                               onClick={() => removeImage(instance.id)}
@@ -625,6 +855,15 @@ export default function ApplyModelTab() {
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                       </div>
+                      
+                      {/* Analysis Info */}
+                      {instance.imageAnalysis && (
+                        <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                          <div>Jas: {Math.round(instance.imageAnalysis.brightness * 100)}%</div>
+                          <div>Kontrast: {Math.round(instance.imageAnalysis.contrast * 100)}%</div>
+                          <div>Složitost: {Math.round(instance.imageAnalysis.complexity * 100)}%</div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Results Grid - Right side, large */}
