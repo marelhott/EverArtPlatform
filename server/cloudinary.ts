@@ -18,7 +18,9 @@ export class CloudinaryService {
     try {
       const result = await cloudinary.uploader.upload(imageUrl, {
         folder: folderPath,
-        resource_type: 'image'
+        resource_type: 'image',
+        use_filename: true,
+        unique_filename: true
       });
 
       return {
