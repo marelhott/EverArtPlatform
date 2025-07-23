@@ -140,16 +140,13 @@ export default function ApplyModelTab() {
       
       const previewUrl = URL.createObjectURL(file);
       
-      // Update instance immediately
+      // Update instance immediately and keep the preview stable
       setInstances(prev => prev.map(instance => 
         instance.id === instanceId 
           ? { 
               ...instance, 
               inputImage: file, 
-              inputImagePreview: previewUrl,
-              imageAnalysis: null,
-              styleRecommendation: null,
-              previewUrl: null
+              inputImagePreview: previewUrl
             }
           : instance
       ));
@@ -159,15 +156,6 @@ export default function ApplyModelTab() {
         title: "Obrázek nahrán",
         description: `Soubor ${file.name} byl úspěšně nahrán`
       });
-      
-      // Analyze image for adaptive style strength (non-blocking)
-      setTimeout(async () => {
-        try {
-          await analyzeImageForAdaptiveStyle(instanceId, file);
-        } catch (error) {
-          console.error('Image analysis failed:', error);
-        }
-      }, 100);
     }
   };
 
@@ -194,10 +182,7 @@ export default function ApplyModelTab() {
           ? { 
               ...instance, 
               inputImage: file, 
-              inputImagePreview: previewUrl,
-              imageAnalysis: null,
-              styleRecommendation: null,
-              previewUrl: null
+              inputImagePreview: previewUrl
             }
           : instance
       ));
@@ -701,21 +686,13 @@ export default function ApplyModelTab() {
             {/* Settings */}
             <div className="space-y-6">
 
-              {/* Advanced Settings - Three boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-6xl mx-auto">
-                {/* Style Strength Box with Adaptive Features */}
+              {/* Simple Settings - Two boxes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-4xl mx-auto">
+                {/* Style Strength Box */}
                 <div className="bg-gradient-to-br from-green-50 via-green-100 to-green-50 dark:from-green-900/20 dark:via-green-800/20 dark:to-green-900/20 rounded-xl p-3 border border-green-200/50 dark:border-green-700/50 shadow-sm backdrop-blur-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
-                      Síla stylu: {styleStrength.toFixed(1)}
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-600">
-                        Adaptivní
-                      </Badge>
-                    </div>
-                  </div>
+                  <Label className="text-green-700 dark:text-green-300 font-medium text-sm">
+                    Síla stylu: {styleStrength.toFixed(1)}
+                  </Label>
                   <div className="mt-2">
                     <Slider
                       value={[styleStrength]}
@@ -728,43 +705,6 @@ export default function ApplyModelTab() {
                     <div className="flex justify-between text-xs text-green-600 dark:text-green-400 mt-1">
                       <span>Slabý (0.0)</span>
                       <span>Silný (1.0)</span>
-                    </div>
-                    {/* Adaptive recommendation display */}
-                    {instances[0]?.styleRecommendation && (
-                      <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-700">
-                        <div className="text-xs text-green-700 dark:text-green-300">
-                          <div className="font-medium">Doporučení AI: {Math.round(instances[0].styleRecommendation.strength * 100)}%</div>
-                          <div className="text-green-600 dark:text-green-400 mt-1">{instances[0].styleRecommendation.reasoning}</div>
-                          <div className="text-green-500 dark:text-green-500 mt-1">Spolehlivost: {Math.round(instances[0].styleRecommendation.confidence * 100)}%</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Progressive Generation Info */}
-                <div className="bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50 dark:from-blue-900/20 dark:via-blue-800/20 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-700/50 shadow-sm backdrop-blur-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-blue-700 dark:text-blue-300 font-medium text-sm">
-                      Progresivní generování
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600">
-                        V reálném čase
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-xs text-blue-600 dark:text-blue-400">
-                      • Vizuální náhled během generování
-                    </div>
-                    <div className="text-xs text-blue-600 dark:text-blue-400">
-                      • Sledování postupu pro každý obrázek
-                    </div>
-                    <div className="text-xs text-blue-600 dark:text-blue-400">
-                      • Automatické ukládání do cloudu
                     </div>
                   </div>
                 </div>
@@ -865,12 +805,12 @@ export default function ApplyModelTab() {
                               src={instance.inputImagePreview} 
                               alt="Input" 
                               className="w-full h-full object-cover rounded-lg"
+                              onLoad={() => console.log('Image loaded successfully')}
+                              onError={(e) => {
+                                console.error('Image failed to load:', e);
+                                // Don't remove the preview on error, just log it
+                              }}
                             />
-                            {instance.imageAnalysis && (
-                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
-                                <Brain className="h-2 w-2 text-white" />
-                              </div>
-                            )}
                             <Button
                               type="button"
                               onClick={() => removeImage(instance.id)}
@@ -897,14 +837,7 @@ export default function ApplyModelTab() {
                         />
                       </div>
                       
-                      {/* Analysis Info */}
-                      {instance.imageAnalysis && (
-                        <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                          <div>Jas: {Math.round(instance.imageAnalysis.brightness * 100)}%</div>
-                          <div>Kontrast: {Math.round(instance.imageAnalysis.contrast * 100)}%</div>
-                          <div>Složitost: {Math.round(instance.imageAnalysis.complexity * 100)}%</div>
-                        </div>
-                      )}
+
                     </div>
 
                     {/* Results Grid - Right side, large */}

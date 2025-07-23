@@ -717,14 +717,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { everartId } = req.params;
       
-      // Only delete from local storage, NOT from EverArt API
-      await storage.deleteModel(everartId);
-      console.log(`Model ${everartId} removed from local storage only`);
+      // Check if model exists first
+      const existingModel = await storage.getModel(everartId);
+      if (!existingModel) {
+        return res.status(404).json({ success: false, message: "Model nenalezen" });
+      }
       
-      res.json({ success: true, message: "Model odebrán z aplikace" });
+      // Only delete from local storage, NOT from EverArt API
+      const deleted = await storage.deleteModel(everartId);
+      if (deleted) {
+        console.log(`Model ${everartId} removed from local storage only`);
+        res.json({ success: true, message: "Model odebrán z aplikace" });
+      } else {
+        res.status(500).json({ success: false, message: "Nepodařilo se odebrat model" });
+      }
     } catch (error) {
       console.error("Error deleting model:", error);
-      res.status(500).json({ message: "Nepodařilo se odebrat model" });
+      res.status(500).json({ success: false, message: "Nepodařilo se odebrat model" });
     }
   });
 
