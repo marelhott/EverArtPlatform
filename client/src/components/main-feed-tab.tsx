@@ -86,14 +86,14 @@ export default function MainFeedTab() {
     queryKey: ["/api/models"],
   });
 
-  const models = modelsData?.models || [];
+  const models: Model[] = modelsData?.models || [];
 
   // Load all generations for the feed
   const { data: generationsData, refetch: refetchGenerations } = useQuery({
     queryKey: ["/api/generations"],
   });
 
-  const generations = generationsData?.generations || [];
+  const generations: any[] = generationsData?.generations || [];
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -187,73 +187,37 @@ export default function MainFeedTab() {
 
   return (
     <div className="flex h-[calc(100vh-200px)]">
-      {/* Left Panel - Models */}
-      <div className="w-64 border-r border-border bg-card/50 backdrop-blur-sm">
-        <div className="p-4">
-          <h3 className="text-sm font-semibold mb-3">Vyberte modely</h3>
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-2">
-              {models.map((model: Model) => (
-                <div key={model.everartId} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-muted/50">
-                  <Checkbox
-                    id={model.everartId}
-                    checked={selectedModels.includes(model.everartId)}
-                    onCheckedChange={(checked) => handleModelSelect(model.everartId, checked as boolean)}
-                  />
-                  <div className="flex items-center space-x-2 flex-1">
-                    {model.thumbnailUrl && (
-                      <img
-                        src={model.thumbnailUrl}
-                        alt={model.name}
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate">{model.name}</p>
-                      <Badge variant={model.status === 'READY' ? 'default' : 'secondary'} className="text-[10px] py-0 px-1">
-                        {model.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Compact Settings */}
-        <div className="p-4 border-t border-border">
+      {/* Left Panel - Compact Controls */}
+      <div className="w-52 bg-card/50 backdrop-blur-sm">
+        <div className="p-2 pl-0">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
-            {/* Image Upload */}
+            {/* Image Upload - Two Column Width */}
             <div>
-              <Label className="text-xs">Vstupní obrázek</Label>
               {!inputImagePreview ? (
-                <div className="mt-1">
-                  <label className="flex items-center justify-center w-full h-20 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-4 w-4 text-muted-foreground" />
-                      <p className="text-[10px] text-muted-foreground mt-1">Nahrát</p>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                <label className="flex items-center justify-center w-full h-16 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50">
+                  <div className="text-center">
+                    <Upload className="mx-auto h-4 w-4 text-muted-foreground" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Vstupní obrázek</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
               ) : (
-                <div className="mt-1 relative">
+                <div className="relative">
                   <img
                     src={inputImagePreview}
                     alt="Preview"
-                    className="w-full h-20 object-cover rounded-lg"
+                    className="w-full h-16 object-cover rounded-lg"
                   />
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
+                    className="absolute top-1 right-1 h-5 w-5 p-0"
                     onClick={removeImage}
                   >
                     <X className="h-3 w-3" />
@@ -262,55 +226,94 @@ export default function MainFeedTab() {
               )}
             </div>
 
-            {/* Style Strength */}
-            <div>
-              <Label className="text-xs">Síla stylu: {form.watch("styleStrength")}</Label>
-              <Slider
-                value={[form.watch("styleStrength")]}
-                onValueChange={(value) => form.setValue("styleStrength", value[0])}
-                max={1}
-                min={0}
-                step={0.1}
-                className="mt-1"
-              />
+            {/* Settings Row */}
+            <div className="grid grid-cols-2 gap-2">
+              {/* Style Strength */}
+              <div>
+                <Label className="text-[10px]">Síla: {form.watch("styleStrength")}</Label>
+                <Slider
+                  value={[form.watch("styleStrength")]}
+                  onValueChange={(value) => form.setValue("styleStrength", value[0])}
+                  max={1}
+                  min={0}
+                  step={0.1}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Number of Images */}
+              <div>
+                <Label className="text-[10px]">Počet: {form.watch("numImages")}</Label>
+                <Slider
+                  value={[form.watch("numImages")]}
+                  onValueChange={(value) => form.setValue("numImages", value[0])}
+                  max={4}
+                  min={1}
+                  step={1}
+                  className="mt-1"
+                />
+              </div>
             </div>
 
-            {/* Number of Images */}
-            <div>
-              <Label className="text-xs">Počet obrázků: {form.watch("numImages")}</Label>
-              <Slider
-                value={[form.watch("numImages")]}
-                onValueChange={(value) => form.setValue("numImages", value[0])}
-                max={4}
-                min={1}
-                step={1}
-                className="mt-1"
-              />
-            </div>
-
+            {/* Generate Button */}
             <Button
               type="submit"
-              className="w-full h-8 text-xs"
+              className="w-full h-7 text-[10px]"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
             >
               {generateImagesMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-2 w-2 border-b border-white mr-1"></div>
                   Generování...
                 </>
               ) : (
                 <>
-                  <Wand2 className="mr-2 h-3 w-3" />
-                  {selectedModels.length === 1 ? "Generovat" : `Generovat s ${selectedModels.length} modely`}
+                  <Wand2 className="mr-1 h-2 w-2" />
+                  {selectedModels.length === 1 ? "Generovat" : `${selectedModels.length} modelů`}
                 </>
               )}
             </Button>
           </form>
+
+          {/* Models Grid - Two Columns */}
+          <div className="mt-4">
+            <ScrollArea className="h-[400px]">
+              <div className="grid grid-cols-2 gap-1">
+                {models.map((model: Model) => (
+                  <div
+                    key={model.everartId}
+                    className={`relative cursor-pointer rounded-lg overflow-hidden ${
+                      selectedModels.includes(model.everartId) 
+                        ? 'ring-2 ring-primary' 
+                        : 'hover:ring-1 hover:ring-border'
+                    }`}
+                    onClick={() => handleModelSelect(model.everartId, !selectedModels.includes(model.everartId))}
+                  >
+                    {model.thumbnailUrl && (
+                      <img
+                        src={model.thumbnailUrl}
+                        alt={model.name}
+                        className="w-full h-16 object-cover"
+                      />
+                    )}
+                    {selectedModels.includes(model.everartId) && (
+                      <div className="absolute top-1 right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="h-2 w-2 text-primary-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-1">
+                      <p className="text-[9px] font-medium truncate leading-tight">{model.name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </div>
 
       {/* Main Feed */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 border-l border-border">
         <ScrollArea className="h-full">
           {generations.length === 0 ? (
             <div className="flex items-center justify-center h-full">
