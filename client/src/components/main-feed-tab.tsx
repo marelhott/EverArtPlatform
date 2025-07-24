@@ -189,12 +189,12 @@ export default function MainFeedTab() {
   return (
     <div className="flex h-[calc(100vh-140px)]">
       {/* Left Panel - Compact Controls */}
-      <div className="w-60 bg-card/50 backdrop-blur-sm ml-4">
-        <div className="p-3">
+      <div className="w-60 bg-card/50 backdrop-blur-sm ml-8">
+        <div className="p-4">
           <form onSubmit={(e) => {
             console.log("🟡 FORM ONSUBMIT CALLED");
             form.handleSubmit(handleSubmit)(e);
-          }} className="space-y-3">
+          }} className="space-y-5">
             {/* Image Upload - Two Column Width */}
             <div>
               {!inputImagePreview ? (
@@ -288,7 +288,7 @@ export default function MainFeedTab() {
             
             {/* Progress Bar Area */}
             {generateImagesMutation.isPending && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <div className="w-full bg-secondary rounded-full h-1">
                   <div className="bg-primary h-1 rounded-full animate-pulse" style={{width: '60%'}}></div>
                 </div>
@@ -297,8 +297,8 @@ export default function MainFeedTab() {
           </form>
 
           {/* Models Grid - Two Columns */}
-          <div className="mt-3">
-            <ScrollArea className="h-[calc(100vh-340px)] pr-2">
+          <div className="mt-6">
+            <ScrollArea className="h-[calc(100vh-360px)] pr-2">
               <div className="grid grid-cols-2 gap-1.5 pr-1">
                 {models.map((model: Model) => (
                   <div
@@ -334,7 +334,7 @@ export default function MainFeedTab() {
       </div>
 
       {/* Main Feed */}
-      <div className="flex-1 p-4 border-l border-border">
+      <div className="flex-1 p-6 border-l border-border">
         <ScrollArea className="h-full">
           {generations.length === 0 ? (
             <div className="flex items-center justify-center h-full">
