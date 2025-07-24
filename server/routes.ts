@@ -19,7 +19,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const EVERART_API_KEY = process.env.EVERART_API_KEY || process.env.API_KEY || "everart-Ec0-3NNDOk-RiqRq1n574d-grIX2izOUjlCZSGEy9cQ";
+const EVERART_API_KEY = process.env.EVERART_API_KEY;
 const BASE_URL = "https://api.everart.ai/v1";
 
 const apiClient = axios.create({
@@ -52,8 +52,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all models (only local models, EverArt models filtered by deletion)
   app.get("/api/models", async (req, res) => {
     try {
+      if (!EVERART_API_KEY) {
+        return res.status(400).json({ 
+          message: "EverArt API klíč není nastaven",
+          models: []
+        });
+      }
+
+      console.log("Fetching models from EverArt API...");
       // Get EverArt models for sync
       const response = await apiClient.get("/models");
+      console.log("EverArt API response:", response.status, response.data);
       const everartModels = response.data.models || [];
       
       // Store/update NEW models in local storage only (skip deleted ones)

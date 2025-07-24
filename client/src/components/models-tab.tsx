@@ -258,10 +258,16 @@ export default function ModelsTab() {
             <div className="text-center py-12">
               <Bot className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Žádné modely nebyly nalezeny</h3>
-              <p className="text-muted-foreground mb-4">Začněte vytvořením vašeho prvního AI modelu</p>
-              <Button>
-                Vytvořit první model
-              </Button>
+              <p className="text-muted-foreground mb-4">
+                Váš EverArt účet je prázdný nebo se API klíč nepřipojuje správně.<br/>
+                Začněte vytvořením vašeho prvního AI modelu nebo zkontrolujte API klíč.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={() => refetch()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Zkusit znovu
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
