@@ -49,16 +49,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Get all models from EverArt API
+  // Get all models (only local models, EverArt models filtered by deletion)
   app.get("/api/models", async (req, res) => {
     try {
+      // Get EverArt models for sync
       const response = await apiClient.get("/models");
-      const models = response.data.models || [];
+      const everartModels = response.data.models || [];
       
-      // Store/update models in local storage
-      for (const model of models) {
+      // Store/update NEW models in local storage only
+      for (const model of everartModels) {
         const existingModel = await storage.getModelByEverartId(model.id);
         if (!existingModel) {
+          // This is a new model, add it
           await storage.createModel({
             everartId: model.id,
             name: model.name,
@@ -67,10 +69,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             thumbnailUrl: model.thumbnail_url
           });
         } else {
+          // Update existing model status
           await storage.updateModelStatus(model.id, model.status, model.thumbnail_url);
         }
       }
       
+      // Return ONLY models that exist in local storage (deleted models won't be included)
       const localModels = await storage.getAllModels();
       res.json({ models: localModels });
     } catch (error) {
