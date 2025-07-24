@@ -189,7 +189,7 @@ export default function MainFeedTab() {
     <div className="flex h-[calc(100vh-200px)]">
       {/* Left Panel - Compact Controls */}
       <div className="w-52 bg-card/50 backdrop-blur-sm">
-        <div className="p-2 pl-0">
+        <div className="p-3">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
             {/* Image Upload - Two Column Width */}
             <div>
@@ -277,8 +277,8 @@ export default function MainFeedTab() {
 
           {/* Models Grid - Two Columns */}
           <div className="mt-4">
-            <ScrollArea className="h-[400px]">
-              <div className="grid grid-cols-2 gap-1">
+            <ScrollArea className="h-[calc(100vh-400px)]">
+              <div className="grid grid-cols-2 gap-2">
                 {models.map((model: Model) => (
                   <div
                     key={model.everartId}
@@ -293,7 +293,7 @@ export default function MainFeedTab() {
                       <img
                         src={model.thumbnailUrl}
                         alt={model.name}
-                        className="w-full h-16 object-cover"
+                        className="w-full aspect-square object-cover"
                       />
                     )}
                     {selectedModels.includes(model.everartId) && (
@@ -302,7 +302,7 @@ export default function MainFeedTab() {
                       </div>
                     )}
                     <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-1">
-                      <p className="text-[9px] font-medium truncate leading-tight">{model.name}</p>
+                      <p className="text-[9px] font-medium truncate leading-tight text-center">{model.name}</p>
                     </div>
                   </div>
                 ))}
