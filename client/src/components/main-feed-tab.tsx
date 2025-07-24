@@ -158,8 +158,6 @@ export default function MainFeedTab() {
   });
 
   const handleSubmit = (data: ApplyModelForm) => {
-    console.log("🔥 SUBMIT TRIGGERED", { data, inputImage, selectedModels });
-    
     if (!inputImage) {
       toast({
         title: "Chyba",
@@ -178,7 +176,6 @@ export default function MainFeedTab() {
       return;
     }
 
-    console.log("🚀 Starting generation...");
     generateImagesMutation.mutate({
       ...data,
       inputImage,
@@ -191,10 +188,7 @@ export default function MainFeedTab() {
       {/* Left Panel - Compact Controls */}
       <div className="w-60 bg-card/50 backdrop-blur-sm ml-8">
         <div className="p-4">
-          <form onSubmit={(e) => {
-            console.log("🟡 FORM ONSUBMIT CALLED");
-            form.handleSubmit(handleSubmit)(e);
-          }} className="space-y-5">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
             {/* Image Upload - Two Column Width */}
             <div>
               {!inputImagePreview ? (
@@ -264,14 +258,7 @@ export default function MainFeedTab() {
               type="submit"
               className="w-full h-7 text-[10px]"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
-              onClick={(e) => {
-                console.log("🔴 BUTTON CLICKED!", { 
-                  inputImage: !!inputImage, 
-                  selectedModels: selectedModels.length, 
-                  formErrors: form.formState.errors,
-                  isDisabled: generateImagesMutation.isPending || !inputImage || selectedModels.length === 0
-                });
-              }}
+
             >
               {generateImagesMutation.isPending ? (
                 <>
@@ -297,7 +284,7 @@ export default function MainFeedTab() {
           </form>
 
           {/* Models Grid - Two Columns */}
-          <div className="mt-6">
+          <div className="mt-10">
             <ScrollArea className="h-[calc(100vh-360px)] pr-2">
               <div className="grid grid-cols-2 gap-1.5 pr-1">
                 {models.map((model: Model) => (
@@ -350,9 +337,12 @@ export default function MainFeedTab() {
                 <div key={generation.id} className="group relative">
                   <div className="aspect-square overflow-hidden rounded-lg bg-muted">
                     <img
-                      src={generation.imageUrl}
+                      src={generation.outputImageUrl || generation.imageUrl}
                       alt={`Generation ${generation.id}`}
                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
                   </div>
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
@@ -361,7 +351,7 @@ export default function MainFeedTab() {
                         size="sm"
                         variant="secondary"
                         className="h-8 w-8 p-0"
-                        onClick={() => downloadImage(generation.imageUrl, `generation-${generation.id}.png`)}
+                        onClick={() => downloadImage(generation.outputImageUrl || generation.imageUrl, `generation-${generation.id}.png`)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -369,7 +359,7 @@ export default function MainFeedTab() {
                         size="sm"
                         variant="secondary"
                         className="h-8 w-8 p-0"
-                        onClick={() => window.open(generation.imageUrl, '_blank')}
+                        onClick={() => window.open(generation.outputImageUrl || generation.imageUrl, '_blank')}
                       >
                         <ZoomIn className="h-4 w-4" />
                       </Button>
