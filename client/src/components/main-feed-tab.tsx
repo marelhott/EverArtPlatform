@@ -9,7 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn } from "lucide-react";
+import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -84,14 +84,14 @@ export default function MainFeedTab() {
     queryKey: ["/api/models"],
   });
 
-  const models: Model[] = modelsData?.models || [];
+  const models: Model[] = (modelsData as any)?.models || [];
 
   // Load all generations for the feed
   const { data: generationsData, refetch: refetchGenerations } = useQuery({
     queryKey: ["/api/generations"],
   });
 
-  const generations: any[] = generationsData?.generations || [];
+  const generations: any[] = (generationsData as any)?.generations || [];
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -186,8 +186,8 @@ export default function MainFeedTab() {
   return (
     <div className="flex h-[calc(100vh-140px)]">
       {/* Left Panel - Compact Controls */}
-      <div className="w-60 bg-card/50 backdrop-blur-sm ml-8">
-        <div className="p-4">
+      <div className="w-80 bg-card/50 backdrop-blur-sm ml-12">
+        <div className="p-6">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
             {/* Image Upload - Two Column Width */}
             <div>
@@ -256,18 +256,18 @@ export default function MainFeedTab() {
             {/* Generate Button */}
             <Button
               type="submit"
-              className="w-full h-7 text-[10px]"
+              className="w-full h-12 text-sm font-medium"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
 
             >
               {generateImagesMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-2 w-2 border-b border-white mr-1"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Generování...
                 </>
               ) : (
                 <>
-                  <Wand2 className="mr-1 h-2 w-2" />
+                  <Wand2 className="mr-2 h-4 w-4" />
                   Generovat {selectedModels.length > 1 ? `(${selectedModels.length})` : ''}
                 </>
               )}
@@ -321,7 +321,7 @@ export default function MainFeedTab() {
       </div>
 
       {/* Main Feed */}
-      <div className="flex-1 p-6 border-l border-border">
+<div className="flex-1 p-8 border-l border-border">
         <ScrollArea className="h-full">
           {generations.length === 0 ? (
             <div className="flex items-center justify-center h-full">
@@ -332,18 +332,41 @@ export default function MainFeedTab() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2">
+            <div className="grid grid-cols-4 gap-4">
               {generations.map((generation: any) => (
                 <div key={generation.id} className="group relative">
                   <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-                    <img
-                      src={generation.outputImageUrl || generation.imageUrl}
-                      alt={`Generation ${generation.id}`}
-                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+                    {generation.status === 'FAILED' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                        <div className="text-center">
+                          <ImageIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">Generování selhalo</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={generation.cloudinaryUrl || generation.outputImageUrl || generation.imageUrl}
+                        alt={`Generation ${generation.id}`}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                                <div class="text-center">
+                                  <svg class="h-8 w-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  <p class="text-xs text-gray-500">Obrázek nedostupný</p>
+                                </div>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    )}
                   </div>
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                     <div className="flex space-x-2">

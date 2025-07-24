@@ -15,9 +15,12 @@ export const models = pgTable("models", {
 export const generations = pgTable("generations", {
   id: serial("id").primaryKey(),
   modelId: text("model_id").notNull(),
+  modelName: text("model_name"),
   inputImageUrl: text("input_image_url").notNull(),
   outputImageUrl: text("output_image_url"),
+  cloudinaryUrl: text("cloudinary_url"),
   status: text("status").notNull(), // PENDING, PROCESSING, COMPLETED, FAILED
+  errorMessage: text("error_message"),
   styleStrength: real("style_strength").default(0.6),
   width: integer("width").default(512),
   height: integer("height").default(512),
@@ -39,6 +42,7 @@ export const insertGenerationSchema = createInsertSchema(generations).omit({
   id: true,
   createdAt: true,
   outputImageUrl: true,
+  cloudinaryUrl: true,
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

@@ -192,9 +192,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Image uploaded with token:", uploadData.upload_token);
 
+      // Get model name for generation tracking
+      const model = await storage.getModelByEverartId(everartId);
+      const modelName = model?.name || "Unknown Model";
+
       // Create generation locally
       const generation = await storage.createGeneration({
         modelId: everartId,
+        modelName: modelName,
         inputImageUrl: uploadData.upload_url,
         status: "PROCESSING",
         styleStrength: parseFloat(styleStrength),
@@ -392,13 +397,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         headers: { "Content-Type": contentType }
       });
 
-      // Process each model
+      // Process each model and create individual database entries
       const allResults = [];
-      const generationPromises = parsedModelIds.map(async (modelId: string) => {
+      
+      for (const modelId of parsedModelIds) {
         try {
-          // Create generation locally for each model
+          // Get model details
+          const model = await storage.getModelByEverartId(modelId);
+          const modelName = model?.name || "Unknown Model";
+          
+          // Create generation locally for each model (individual entries)
           const generation = await storage.createGeneration({
             modelId: modelId,
+            modelName: modelName,
             inputImageUrl: uploadData.upload_url,
             status: "PROCESSING",
             styleStrength: parseFloat(styleStrength),
@@ -406,97 +417,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
             height: parseInt(height)
           });
 
-          // Generate with EverArt
-          const generationPayload = {
-            prompt: " ",
-            type: "img2img", 
-            image: uploadData.file_url,
-            image_count: parseInt(numImages),
-            width: parseInt(width),
-            height: parseInt(height),
-            style_strength: parseFloat(styleStrength)
-          };
+          try {
+            // Generate with EverArt
+            const generationPayload = {
+              prompt: " ",
+              type: "img2img", 
+              image: uploadData.file_url,
+              image_count: parseInt(numImages),
+              width: parseInt(width),
+              height: parseInt(height),
+              style_strength: parseFloat(styleStrength)
+            };
 
-          const generationResponse = await apiClient.post(`/models/${modelId}/generations`, generationPayload);
-          const generations = generationResponse.data.generations || [];
+            const generationResponse = await apiClient.post(`/models/${modelId}/generations`, generationPayload);
+            const generations = generationResponse.data.generations || [];
 
-          if (generations.length > 0) {
-            // Poll for completion
-            const maxAttempts = 60;
-            let attempts = 0;
-            
-            while (attempts < maxAttempts) {
-              try {
-                const statusResponse = await apiClient.get(`/generations/${generations[0].id}`);
-                const genStatus = statusResponse.data.generation;
-                
-                if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
-                  // Upload to Cloudinary if configured
-                  let finalUrl = genStatus.image_url;
-                  if (CloudinaryService.isConfigured()) {
-                    try {
-                      const cloudinaryResult = await CloudinaryService.uploadFromUrl(
-                        genStatus.image_url,
-                        'everart-generations'
-                      );
-                      finalUrl = cloudinaryResult.secure_url;
-                    } catch (cloudinaryError) {
-                      console.warn('Cloudinary upload failed, using original URL:', cloudinaryError);
+            if (generations.length > 0) {
+              // Poll for completion
+              const maxAttempts = 60;
+              let attempts = 0;
+              
+              while (attempts < maxAttempts) {
+                try {
+                  const statusResponse = await apiClient.get(`/generations/${generations[0].id}`);
+                  const genStatus = statusResponse.data.generation;
+                  
+                  if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
+                    // Upload to Cloudinary if configured
+                    let finalUrl = genStatus.image_url;
+                    if (CloudinaryService.isConfigured()) {
+                      try {
+                        const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                          genStatus.image_url,
+                          'everart-generations'
+                        );
+                        finalUrl = cloudinaryResult.secure_url;
+                      } catch (cloudinaryError) {
+                        console.warn('Cloudinary upload failed, using original URL:', cloudinaryError);
+                      }
                     }
+
+                    await storage.updateGeneration(generation.id, {
+                      outputImageUrl: finalUrl,
+                      cloudinaryUrl: finalUrl,
+                      status: "COMPLETED"
+                    });
+
+                    allResults.push({
+                      modelId,
+                      success: true,
+                      resultUrl: finalUrl,
+                      generation
+                    });
+                    break;
+                  } else if (genStatus.status === 'FAILED') {
+                    await storage.updateGeneration(generation.id, { 
+                      status: "FAILED", 
+                      errorMessage: "Generation failed on EverArt"
+                    });
+                    allResults.push({ modelId, success: false, error: "Generation failed" });
+                    break;
                   }
-
-                  await storage.updateGeneration(generation.id, {
-                    outputImageUrl: finalUrl,
-                    status: "COMPLETED"
-                  });
-
-                  return {
-                    modelId,
-                    success: true,
-                    resultUrl: finalUrl,
-                    generation
-                  };
-                } else if (genStatus.status === 'FAILED') {
-                  await storage.updateGeneration(generation.id, { status: "FAILED" });
-                  return { modelId, success: false, error: "Generation failed" };
+                  
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                  attempts++;
+                } catch (pollError) {
+                  console.error(`Error polling generation for model ${modelId}:`, pollError);
+                  attempts++;
+                  await new Promise(resolve => setTimeout(resolve, 3000));
                 }
-                
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                attempts++;
-              } catch (pollError) {
-                console.error(`Error polling generation for model ${modelId}:`, pollError);
-                attempts++;
-                await new Promise(resolve => setTimeout(resolve, 3000));
               }
+              
+              if (attempts >= maxAttempts) {
+                // Timeout
+                await storage.updateGeneration(generation.id, { 
+                  status: "FAILED", 
+                  errorMessage: "Generation timeout"
+                });
+                allResults.push({ modelId, success: false, error: "Timeout" });
+              }
+            } else {
+              await storage.updateGeneration(generation.id, { 
+                status: "FAILED", 
+                errorMessage: "No generations returned from API"
+              });
+              allResults.push({ modelId, success: false, error: "No generations returned" });
             }
-            
-            // Timeout
-            await storage.updateGeneration(generation.id, { status: "FAILED" });
-            return { modelId, success: false, error: "Timeout" };
-          } else {
-            await storage.updateGeneration(generation.id, { status: "FAILED" });
-            return { modelId, success: false, error: "No generations returned" };
+          } catch (apiError) {
+            console.error(`Error generating with model ${modelId}:`, apiError);
+            await storage.updateGeneration(generation.id, { 
+              status: "FAILED", 
+              errorMessage: apiError instanceof Error ? apiError.message : 'API error'
+            });
+            allResults.push({ 
+              modelId, 
+              success: false, 
+              error: apiError instanceof Error ? apiError.message : 'API error' 
+            });
           }
-        } catch (error: unknown) {
-          console.error(`Error processing model ${modelId}:`, error);
-          return { modelId, success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        } catch (storageError) {
+          console.error(`Error creating generation for model ${modelId}:`, storageError);
+          allResults.push({ 
+            modelId, 
+            success: false, 
+            error: storageError instanceof Error ? storageError.message : 'Storage error' 
+          });
         }
-      });
+      }
 
-      // Wait for all generations to complete
-      const results = await Promise.all(generationPromises);
-      const successfulResults = results.filter(r => r.success);
+      const successfulResults = allResults.filter(r => r.success);
       
       if (successfulResults.length > 0) {
         res.json({ 
           success: true,
-          results: results,
-          message: `Úspěšně vygenerováno ${successfulResults.length}/${results.length} obrázků`
+          results: allResults,
+          message: `Úspěšně vygenerováno ${successfulResults.length}/${allResults.length} obrázků`
         });
       } else {
         res.status(500).json({
           success: false,
-          results: results,
+          results: allResults,
           message: "Žádné generování se nepodařilo"
         });
       }

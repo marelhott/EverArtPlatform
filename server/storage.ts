@@ -1,4 +1,6 @@
 import { models, generations, users, type Model, type Generation, type User, type InsertModel, type InsertGeneration, type InsertUser } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -143,4 +145,88 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async getAllModels(): Promise<Model[]> {
+    return await db.select().from(models);
+  }
+
+  async getModel(id: number): Promise<Model | undefined> {
+    const [model] = await db.select().from(models).where(eq(models.id, id));
+    return model || undefined;
+  }
+
+  async getModelByEverartId(everartId: string): Promise<Model | undefined> {
+    const [model] = await db.select().from(models).where(eq(models.everartId, everartId));
+    return model || undefined;
+  }
+
+  async createModel(insertModel: InsertModel): Promise<Model> {
+    const [model] = await db.insert(models).values(insertModel).returning();
+    return model;
+  }
+
+  async updateModelStatus(everartId: string, status: string, thumbnailUrl?: string): Promise<Model | undefined> {
+    const updates: Partial<Model> = { status };
+    if (thumbnailUrl) updates.thumbnailUrl = thumbnailUrl;
+    
+    const [model] = await db.update(models)
+      .set(updates)
+      .where(eq(models.everartId, everartId))
+      .returning();
+    return model || undefined;
+  }
+
+  async deleteModel(everartId: string): Promise<boolean> {
+    const result = await db.delete(models).where(eq(models.everartId, everartId));
+    return result.rowCount > 0;
+  }
+
+  async isModelDeleted(everartId: string): Promise<boolean> {
+    const model = await this.getModelByEverartId(everartId);
+    return !model; // If model doesn't exist locally, consider it deleted
+  }
+
+  async getAllGenerations(): Promise<Generation[]> {
+    return await db.select().from(generations).orderBy(generations.id);
+  }
+
+  async getGeneration(id: number): Promise<Generation | undefined> {
+    const [generation] = await db.select().from(generations).where(eq(generations.id, id));
+    return generation || undefined;
+  }
+
+  async createGeneration(insertGeneration: InsertGeneration): Promise<Generation> {
+    const [generation] = await db.insert(generations).values(insertGeneration).returning();
+    return generation;
+  }
+
+  async updateGeneration(id: number, updates: Partial<Generation>): Promise<Generation | undefined> {
+    const [generation] = await db.update(generations)
+      .set(updates)
+      .where(eq(generations.id, id))
+      .returning();
+    return generation || undefined;
+  }
+
+  async deleteGeneration(id: number): Promise<boolean> {
+    const result = await db.delete(generations).where(eq(generations.id, id));
+    return result.rowCount > 0;
+  }
+}
+
+export const storage = new DatabaseStorage();
