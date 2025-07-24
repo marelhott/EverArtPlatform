@@ -191,9 +191,10 @@ export default function MainFeedTab() {
       {/* Left Panel - Compact Controls */}
       <div className="w-60 bg-card/50 backdrop-blur-sm ml-4">
         <div className="p-3">
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3" onSubmit={(e) => {
+          <form onSubmit={(e) => {
             console.log("🟡 FORM ONSUBMIT CALLED");
-          }}>
+            form.handleSubmit(handleSubmit)(e);
+          }} className="space-y-3">
             {/* Image Upload - Two Column Width */}
             <div>
               {!inputImagePreview ? (
@@ -264,8 +265,12 @@ export default function MainFeedTab() {
               className="w-full h-7 text-[10px]"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
               onClick={(e) => {
-                console.log("🔴 BUTTON CLICKED!", { inputImage, selectedModels, formErrors: form.formState.errors });
-                // Let form handle the submit
+                console.log("🔴 BUTTON CLICKED!", { 
+                  inputImage: !!inputImage, 
+                  selectedModels: selectedModels.length, 
+                  formErrors: form.formState.errors,
+                  isDisabled: generateImagesMutation.isPending || !inputImage || selectedModels.length === 0
+                });
               }}
             >
               {generateImagesMutation.isPending ? (
