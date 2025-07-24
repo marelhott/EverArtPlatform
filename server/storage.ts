@@ -13,6 +13,7 @@ export interface IStorage {
   createModel(model: InsertModel): Promise<Model>;
   updateModelStatus(everartId: string, status: string, thumbnailUrl?: string): Promise<Model | undefined>;
   deleteModel(everartId: string): Promise<boolean>;
+  isModelDeleted(everartId: string): Promise<boolean>;
   
   // Generation methods
   getAllGenerations(): Promise<Generation[]>;
@@ -26,6 +27,7 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private models: Map<number, Model>;
   private generations: Map<number, Generation>;
+  private deletedModelIds: Set<string>; // Track deleted model IDs
   private currentUserId: number;
   private currentModelId: number;
   private currentGenerationId: number;
@@ -34,6 +36,7 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.models = new Map();
     this.generations = new Map();
+    this.deletedModelIds = new Set();
     this.currentUserId = 1;
     this.currentModelId = 1;
     this.currentGenerationId = 1;
@@ -91,9 +94,15 @@ export class MemStorage implements IStorage {
   async deleteModel(everartId: string): Promise<boolean> {
     const model = await this.getModelByEverartId(everartId);
     if (model) {
+      // Add to deleted list and remove from models
+      this.deletedModelIds.add(everartId);
       return this.models.delete(model.id);
     }
     return false;
+  }
+
+  async isModelDeleted(everartId: string): Promise<boolean> {
+    return this.deletedModelIds.has(everartId);
   }
 
   async getAllGenerations(): Promise<Generation[]> {

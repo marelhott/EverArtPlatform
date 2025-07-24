@@ -56,8 +56,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const response = await apiClient.get("/models");
       const everartModels = response.data.models || [];
       
-      // Store/update NEW models in local storage only
+      // Store/update NEW models in local storage only (skip deleted ones)
       for (const model of everartModels) {
+        const isDeleted = await storage.isModelDeleted(model.id);
+        if (isDeleted) {
+          // Skip this model - it was deleted by user
+          continue;
+        }
+        
         const existingModel = await storage.getModelByEverartId(model.id);
         if (!existingModel) {
           // This is a new model, add it
