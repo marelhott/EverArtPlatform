@@ -293,7 +293,7 @@ export default function MainFeedTab() {
                       <img
                         src={model.thumbnailUrl}
                         alt={model.name}
-                        className="w-full h-12 object-cover"
+                        className="w-full h-16 object-cover"
                       />
                     )}
                     {selectedModels.includes(model.everartId) && (
