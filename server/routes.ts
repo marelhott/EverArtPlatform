@@ -559,7 +559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { everartId } = req.params;
       
       // Check if model exists first
-      const existingModel = await storage.getModel(everartId);
+      const existingModel = await storage.getModelByEverartId(everartId);
       if (!existingModel) {
         return res.status(404).json({ success: false, message: "Model nenalezen" });
       }
