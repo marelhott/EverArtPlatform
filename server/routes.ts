@@ -356,6 +356,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate images - supports both single and multi-model generation
+  app.post("/api/generations", upload.single("image"), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { modelIds, styleStrength = "0.8", width = "512", height = "512", numImages = "1" } = req.body;
+
+      let parsedModelIds;
+      try {
+        parsedModelIds = JSON.parse(modelIds);
+      } catch (e) {
+        parsedModelIds = [modelIds]; // fallback for single model
+      }
+
+      if (!parsedModelIds || parsedModelIds.length === 0) {
+        return res.status(400).json({ message: "At least one model ID is required" });
+      }
+
+      console.log("Generating with models:", parsedModelIds, "params:", { styleStrength, width, height, numImages });
+
+      // Upload input image once
+      const filename = file.originalname;
+      const contentType = file.mimetype;
+      
+      const uploadResponse = await apiClient.post("/images/uploads", {
+        images: [{ filename, content_type: contentType }]
+      });
+      
+      const uploadData = uploadResponse.data.image_uploads[0];
+      await axios.put(uploadData.upload_url, file.buffer, {
+        headers: { "Content-Type": contentType }
+      });
+
+      // Process each model
+      const allResults = [];
+      const generationPromises = parsedModelIds.map(async (modelId: string) => {
+        try {
+          // Create generation locally for each model
+          const generation = await storage.createGeneration({
+            modelId: modelId,
+            inputImageUrl: uploadData.upload_url,
+            status: "PROCESSING",
+            styleStrength: parseFloat(styleStrength),
+            width: parseInt(width),
+            height: parseInt(height)
+          });
+
+          // Generate with EverArt
+          const generationPayload = {
+            prompt: " ",
+            type: "img2img", 
+            image: uploadData.file_url,
+            image_count: parseInt(numImages),
+            width: parseInt(width),
+            height: parseInt(height),
+            style_strength: parseFloat(styleStrength)
+          };
+
+          const generationResponse = await apiClient.post(`/models/${modelId}/generations`, generationPayload);
+          const generations = generationResponse.data.generations || [];
+
+          if (generations.length > 0) {
+            // Poll for completion
+            const maxAttempts = 60;
+            let attempts = 0;
+            
+            while (attempts < maxAttempts) {
+              try {
+                const statusResponse = await apiClient.get(`/generations/${generations[0].id}`);
+                const genStatus = statusResponse.data.generation;
+                
+                if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
+                  // Upload to Cloudinary if configured
+                  let finalUrl = genStatus.image_url;
+                  if (CloudinaryService.isConfigured()) {
+                    try {
+                      const cloudinaryResult = await CloudinaryService.uploadFromUrl(
+                        genStatus.image_url,
+                        'everart-generations'
+                      );
+                      finalUrl = cloudinaryResult.secure_url;
+                    } catch (cloudinaryError) {
+                      console.warn('Cloudinary upload failed, using original URL:', cloudinaryError);
+                    }
+                  }
+
+                  await storage.updateGeneration(generation.id, {
+                    outputImageUrl: finalUrl,
+                    status: "COMPLETED"
+                  });
+
+                  return {
+                    modelId,
+                    success: true,
+                    resultUrl: finalUrl,
+                    generation
+                  };
+                } else if (genStatus.status === 'FAILED') {
+                  await storage.updateGeneration(generation.id, { status: "FAILED" });
+                  return { modelId, success: false, error: "Generation failed" };
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                attempts++;
+              } catch (pollError) {
+                console.error(`Error polling generation for model ${modelId}:`, pollError);
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 3000));
+              }
+            }
+            
+            // Timeout
+            await storage.updateGeneration(generation.id, { status: "FAILED" });
+            return { modelId, success: false, error: "Timeout" };
+          } else {
+            await storage.updateGeneration(generation.id, { status: "FAILED" });
+            return { modelId, success: false, error: "No generations returned" };
+          }
+        } catch (error: unknown) {
+          console.error(`Error processing model ${modelId}:`, error);
+          return { modelId, success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+      });
+
+      // Wait for all generations to complete
+      const results = await Promise.all(generationPromises);
+      const successfulResults = results.filter(r => r.success);
+      
+      if (successfulResults.length > 0) {
+        res.json({ 
+          success: true,
+          results: results,
+          message: `Úspěšně vygenerováno ${successfulResults.length}/${results.length} obrázků`
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          results: results,
+          message: "Žádné generování se nepodařilo"
+        });
+      }
+      
+    } catch (error: unknown) {
+      console.error("Error in generation:", error);
+      res.status(500).json({ 
+        message: "Nepodařilo se aplikovat modely",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // 🚀 ULTIMÁTNÍ KOMPLETNÍ SYNCHRONIZACE - najde a nahraje VŠECHNO
   app.post("/api/generations/sync-cloudinary", async (req, res) => {
     try {

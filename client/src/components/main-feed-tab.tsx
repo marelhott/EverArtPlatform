@@ -269,16 +269,25 @@ export default function MainFeedTab() {
               ) : (
                 <>
                   <Wand2 className="mr-1 h-2 w-2" />
-                  {selectedModels.length === 1 ? "Generovat" : `${selectedModels.length} modelů`}
+                  Generovat {selectedModels.length > 1 ? `(${selectedModels.length})` : ''}
                 </>
               )}
             </Button>
+            
+            {/* Progress Bar Area */}
+            {generateImagesMutation.isPending && (
+              <div className="mt-2">
+                <div className="w-full bg-secondary rounded-full h-1">
+                  <div className="bg-primary h-1 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                </div>
+              </div>
+            )}
           </form>
 
           {/* Models Grid - Two Columns */}
           <div className="mt-3">
-            <ScrollArea className="h-[calc(100vh-320px)]">
-              <div className="grid grid-cols-2 gap-1.5">
+            <ScrollArea className="h-[calc(100vh-340px)] pr-2">
+              <div className="grid grid-cols-2 gap-1.5 pr-1">
                 {models.map((model: Model) => (
                   <div
                     key={model.everartId}
