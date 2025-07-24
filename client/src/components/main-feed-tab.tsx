@@ -160,6 +160,8 @@ export default function MainFeedTab() {
   });
 
   const handleSubmit = (data: ApplyModelForm) => {
+    console.log("🔥 SUBMIT TRIGGERED", { data, inputImage, selectedModels });
+    
     if (!inputImage) {
       toast({
         title: "Chyba",
@@ -178,6 +180,7 @@ export default function MainFeedTab() {
       return;
     }
 
+    console.log("🚀 Starting generation...");
     generateImagesMutation.mutate({
       ...data,
       inputImage,
@@ -188,7 +191,7 @@ export default function MainFeedTab() {
   return (
     <div className="flex h-[calc(100vh-140px)]">
       {/* Left Panel - Compact Controls */}
-      <div className="w-52 bg-card/50 backdrop-blur-sm ml-4">
+      <div className="w-60 bg-card/50 backdrop-blur-sm ml-4">
         <div className="p-3">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
             {/* Image Upload - Two Column Width */}
@@ -260,6 +263,10 @@ export default function MainFeedTab() {
               type="submit"
               className="w-full h-7 text-[10px]"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
+              onClick={(e) => {
+                console.log("🔴 BUTTON CLICKED!", { inputImage, selectedModels });
+                // Let form handle the submit
+              }}
             >
               {generateImagesMutation.isPending ? (
                 <>
@@ -302,7 +309,7 @@ export default function MainFeedTab() {
                       <img
                         src={model.thumbnailUrl}
                         alt={model.name}
-                        className="w-full h-16 object-cover"
+                        className="w-full aspect-square object-cover"
                       />
                     )}
                     {selectedModels.includes(model.everartId) && (
