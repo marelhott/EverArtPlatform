@@ -18,9 +18,9 @@ export default function Home() {
       {/* Apply Tab má speciální layout bez container padding */}
       {activeTab === 'apply' ? (
         <div>
-          <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-6">
             {/* Navigation Tabs */}
-            <div className="mb-8 flex justify-center">
+            <div className="mb-4 flex justify-center">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="bg-gradient-to-r from-secondary/30 via-card to-accent/30 rounded-2xl p-1 border border-border/50 shadow-lg backdrop-blur-sm">
                   <TabsTrigger 

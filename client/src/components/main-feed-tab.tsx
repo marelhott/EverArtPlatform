@@ -186,9 +186,9 @@ export default function MainFeedTab() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)]">
+    <div className="flex h-[calc(100vh-140px)]">
       {/* Left Panel - Compact Controls */}
-      <div className="w-52 bg-card/50 backdrop-blur-sm">
+      <div className="w-52 bg-card/50 backdrop-blur-sm ml-4">
         <div className="p-3">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
             {/* Image Upload - Two Column Width */}
@@ -276,13 +276,13 @@ export default function MainFeedTab() {
           </form>
 
           {/* Models Grid - Two Columns */}
-          <div className="mt-4">
-            <ScrollArea className="h-[calc(100vh-400px)]">
-              <div className="grid grid-cols-2 gap-2">
+          <div className="mt-3">
+            <ScrollArea className="h-[calc(100vh-320px)]">
+              <div className="grid grid-cols-2 gap-1.5">
                 {models.map((model: Model) => (
                   <div
                     key={model.everartId}
-                    className={`relative cursor-pointer rounded-lg overflow-hidden ${
+                    className={`relative cursor-pointer rounded-md overflow-hidden ${
                       selectedModels.includes(model.everartId) 
                         ? 'ring-2 ring-primary' 
                         : 'hover:ring-1 hover:ring-border'
@@ -293,16 +293,16 @@ export default function MainFeedTab() {
                       <img
                         src={model.thumbnailUrl}
                         alt={model.name}
-                        className="w-full aspect-square object-cover"
+                        className="w-full h-12 object-cover"
                       />
                     )}
                     {selectedModels.includes(model.everartId) && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-                        <Check className="h-2 w-2 text-primary-foreground" />
+                      <div className="absolute top-0.5 right-0.5 w-3 h-3 bg-primary rounded-full flex items-center justify-center">
+                        <Check className="h-1.5 w-1.5 text-primary-foreground" />
                       </div>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white p-1">
-                      <p className="text-[9px] font-medium truncate leading-tight text-center">{model.name}</p>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white px-1 py-0.5">
+                      <p className="text-[8px] font-medium truncate leading-tight text-center">{model.name}</p>
                     </div>
                   </div>
                 ))}
