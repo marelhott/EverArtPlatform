@@ -29,7 +29,6 @@ interface Model {
 }
 
 const applyModelSchema = z.object({
-  modelId: z.string().min(1, "Vyberte model"),
   styleStrength: z.number().min(0).max(1),
   numImages: z.number().min(1).max(4)
 });
@@ -75,7 +74,6 @@ export default function MainFeedTab() {
   const form = useForm<ApplyModelForm>({
     resolver: zodResolver(applyModelSchema),
     defaultValues: {
-      modelId: "",
       styleStrength: 0.8,
       numImages: 1
     }
@@ -193,7 +191,9 @@ export default function MainFeedTab() {
       {/* Left Panel - Compact Controls */}
       <div className="w-60 bg-card/50 backdrop-blur-sm ml-4">
         <div className="p-3">
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3" onSubmit={(e) => {
+            console.log("🟡 FORM ONSUBMIT CALLED");
+          }}>
             {/* Image Upload - Two Column Width */}
             <div>
               {!inputImagePreview ? (
@@ -264,7 +264,7 @@ export default function MainFeedTab() {
               className="w-full h-7 text-[10px]"
               disabled={generateImagesMutation.isPending || !inputImage || selectedModels.length === 0}
               onClick={(e) => {
-                console.log("🔴 BUTTON CLICKED!", { inputImage, selectedModels });
+                console.log("🔴 BUTTON CLICKED!", { inputImage, selectedModels, formErrors: form.formState.errors });
                 // Let form handle the submit
               }}
             >
