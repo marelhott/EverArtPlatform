@@ -331,7 +331,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
           {/* Generation Slots at the top when showGenerationSlots is true */}
           {showGenerationSlots && (
             <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-4">Live Generations</h2>
               <GenerationSlots 
                 generations={generations}
                 onSlotClick={(slotId) => console.log(`Clicked slot ${slotId}`)}
