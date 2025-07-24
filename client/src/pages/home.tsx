@@ -60,7 +60,7 @@ export default function Home() {
             </div>
           </div>
           
-          <MainFeedTab />
+          <MainFeedTab showGenerationSlots={true} />
         </div>
       ) : (
         /* Standard layout pro ostatní taby */

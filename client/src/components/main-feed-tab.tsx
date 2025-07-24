@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { GenerationSlots } from "@/components/generation-slots";
 import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -63,7 +64,11 @@ interface GenerationInstance {
   selectedResultIndex: number;
 }
 
-export default function MainFeedTab() {
+interface MainFeedTabProps {
+  showGenerationSlots?: boolean;
+}
+
+export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTabProps) {
   const { toast } = useToast();
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [inputImage, setInputImage] = useState<File | null>(null);
@@ -323,6 +328,17 @@ export default function MainFeedTab() {
       {/* Main Feed */}
 <div className="flex-1 p-8 border-l border-border">
         <ScrollArea className="h-full">
+          {/* Generation Slots at the top when showGenerationSlots is true */}
+          {showGenerationSlots && (
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold mb-4">Live Generations</h2>
+              <GenerationSlots 
+                generations={generations}
+                onSlotClick={(slotId) => console.log(`Clicked slot ${slotId}`)}
+              />
+            </div>
+          )}
+
           {generations.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
