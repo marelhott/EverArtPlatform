@@ -19,9 +19,10 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-const EVERART_API_KEY = process.env.EVERART_API_KEY;
+const EVERART_API_KEY = process.env.EVERART_API_KEY || "everart-Ec0-3NNDOk-RiqRq1n574d-grIX2izOUjlCZSGEy9cQ";
 const BASE_URL = "https://api.everart.ai/v1";
 
+// Recreate API client to use updated API key
 const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: {
@@ -30,6 +31,8 @@ const apiClient = axios.create({
     "Content-Type": "application/json"
   }
 });
+
+console.log("API Client configured with key:", EVERART_API_KEY ? "Set" : "Not set");
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -62,35 +65,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Fetching models from EverArt API...");
       // Get EverArt models for sync
       const response = await apiClient.get("/models");
-      console.log("EverArt API response:", response.status, response.data);
+      console.log("EverArt API response:", response.status, `Found ${response.data.models?.length || 0} models`);
       const everartModels = response.data.models || [];
+      
+      console.log(`Processing ${everartModels.length} models from EverArt API...`);
       
       // Store/update NEW models in local storage only (skip deleted ones)
       for (const model of everartModels) {
-        const isDeleted = await storage.isModelDeleted(model.id);
-        if (isDeleted) {
-          // Skip this model - it was deleted by user
-          continue;
-        }
-        
-        const existingModel = await storage.getModelByEverartId(model.id);
-        if (!existingModel) {
-          // This is a new model, add it
-          await storage.createModel({
-            everartId: model.id,
-            name: model.name,
-            subject: model.subject || "STYLE",
-            status: model.status,
-            thumbnailUrl: model.thumbnail_url
-          });
-        } else {
-          // Update existing model status
-          await storage.updateModelStatus(model.id, model.status, model.thumbnail_url);
+        try {
+          const isDeleted = await storage.isModelDeleted(model.id);
+          if (isDeleted) {
+            console.log(`Skipping deleted model: ${model.name} (${model.id})`);
+            continue;
+          }
+          
+          const existingModel = await storage.getModelByEverartId(model.id);
+          if (!existingModel) {
+            console.log(`Creating new model: ${model.name} (${model.id})`);
+            await storage.createModel({
+              everartId: model.id,
+              name: model.name,
+              subject: model.subject || "STYLE",
+              status: model.status,
+              thumbnailUrl: model.thumbnail_url
+            });
+          } else {
+            console.log(`Updating existing model: ${model.name} (${model.id})`);
+            await storage.updateModelStatus(model.id, model.status, model.thumbnail_url);
+          }
+        } catch (modelError) {
+          console.error(`Error processing model ${model.id}:`, modelError);
         }
       }
       
       // Return ONLY models that exist in local storage (deleted models won't be included)
       const localModels = await storage.getAllModels();
+      console.log(`Returning ${localModels.length} models from local storage`);
       res.json({ models: localModels });
     } catch (error) {
       console.error("Error fetching models:", error);

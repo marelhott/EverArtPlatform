@@ -197,8 +197,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isModelDeleted(everartId: string): Promise<boolean> {
-    const model = await this.getModelByEverartId(everartId);
-    return !model; // If model doesn't exist locally, consider it deleted
+    // For database storage, we don't track deleted models - we just sync with EverArt
+    // This allows re-adding models that were previously removed
+    return false;
   }
 
   async getAllGenerations(): Promise<Generation[]> {
