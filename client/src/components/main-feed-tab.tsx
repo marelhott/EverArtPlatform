@@ -339,15 +339,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             </div>
           )}
 
-          {generations.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <Wand2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Žádné generace</h3>
-                <p className="text-muted-foreground">Nahrajte obrázek a vyberte modely pro první generaci</p>
-              </div>
-            </div>
-          ) : (
+          {generations.length > 0 && (
             <div className="grid grid-cols-4 gap-4">
               {generations.map((generation: any) => (
                 <div key={generation.id} className="group relative">

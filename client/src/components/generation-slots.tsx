@@ -146,9 +146,9 @@ export function GenerationSlots({ generations, onSlotClick }: GenerationSlotsPro
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
+    <div className="grid grid-cols-4 gap-3 w-full">
       {slots.map((slot) => (
-        <Card key={slot.id} className="h-64 overflow-hidden hover:shadow-lg transition-shadow">
+        <Card key={slot.id} className="h-48 overflow-hidden hover:shadow-lg transition-shadow">
           {getSlotContent(slot)}
         </Card>
       ))}
