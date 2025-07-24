@@ -125,6 +125,14 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   const generateImagesMutation = useMutation({
     mutationFn: async (data: ApplyModelForm & { inputImage: File; selectedModels: string[] }) => {
+      // Start generation slots animation
+      data.selectedModels.forEach((modelId, index) => {
+        const model = models.find(m => m.everartId === modelId);
+        window.dispatchEvent(new CustomEvent('generationStart', {
+          detail: { modelName: model?.name || 'Unknown', slotIndex: index }
+        }));
+      });
+
       const formData = new FormData();
       formData.append("image", data.inputImage);
       formData.append("modelIds", JSON.stringify(data.selectedModels));
@@ -137,12 +145,36 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       });
 
       if (!response.ok) {
+        // Notify slots of failure
+        data.selectedModels.forEach((modelId, index) => {
+          const model = models.find(m => m.everartId === modelId);
+          window.dispatchEvent(new CustomEvent('generationFailed', {
+            detail: { 
+              error: 'Chyba při generování obrázků', 
+              modelName: model?.name || 'Unknown',
+              slotIndex: index 
+            }
+          }));
+        });
         throw new Error("Chyba při generování obrázků");
       }
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Notify slots of completion
+      if (data.results) {
+        data.results.forEach((result: any, index: number) => {
+          window.dispatchEvent(new CustomEvent('generationComplete', {
+            detail: { 
+              imageUrl: result.cloudinaryUrl || result.outputImageUrl || result.imageUrl,
+              modelName: result.modelName,
+              slotIndex: index 
+            }
+          }));
+        });
+      }
+
       toast({
         title: "Úspěch!",
         description: "Obrázky byly úspěšně vygenerovány",
@@ -153,7 +185,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       setInputImagePreview("");
       setSelectedModels([]);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      // Notify slots of failure
+      variables.selectedModels.forEach((modelId, index) => {
+        const model = models.find(m => m.everartId === modelId);
+        window.dispatchEvent(new CustomEvent('generationFailed', {
+          detail: { 
+            error: error.message || 'Generování selhalo', 
+            modelName: model?.name || 'Unknown',
+            slotIndex: index 
+          }
+        }));
+      });
+
       toast({
         title: "Chyba",
         description: error.message,
