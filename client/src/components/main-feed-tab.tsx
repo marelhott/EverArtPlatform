@@ -418,19 +418,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
                   </div>
                   
                   {/* Delete button */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-70 transition-opacity">
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="h-6 w-6 p-0 bg-red-500/80 hover:bg-red-600/90"
+                      variant="ghost"
+                      className="h-5 w-5 p-0 bg-red-500/40 hover:bg-red-600/60 border-none shadow-sm"
                       onClick={(e) => handleDeleteGeneration(generation.id, e)}
                       data-testid={`button-delete-generation-${generation.id}`}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-2.5 w-2.5 text-white" />
                     </Button>
                   </div>
                   
-                  <div className="absolute bottom-2 left-2 right-2">
+                  <div className="absolute bottom-2 left-2 right-8">
                     <Badge variant="secondary" className="text-[10px] py-0 px-1 bg-black/70 text-white">
                       {generation.modelName || 'Unknown Model'}
                     </Badge>

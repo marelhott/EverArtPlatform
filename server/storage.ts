@@ -207,7 +207,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllGenerations(): Promise<Generation[]> {
-    return await db.select().from(generations).orderBy(generations.id);
+    return await db.select().from(generations)
+      .where(eq(generations.isDeleted, false))
+      .orderBy(generations.id);
   }
 
   async getGeneration(id: number): Promise<Generation | undefined> {
@@ -229,12 +231,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteGeneration(id: number): Promise<boolean> {
-    const result = await db.delete(generations).where(eq(generations.id, id));
-    return result.rowCount > 0;
-  }
-
-  async deleteGeneration(id: number): Promise<boolean> {
-    const result = await db.delete(generations).where(eq(generations.id, id));
+    // Soft delete - mark as deleted instead of actually deleting
+    const result = await db.update(generations)
+      .set({ isDeleted: true })
+      .where(eq(generations.id, id));
     return result.rowCount > 0;
   }
 }

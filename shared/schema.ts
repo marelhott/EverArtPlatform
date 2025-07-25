@@ -24,6 +24,7 @@ export const generations = pgTable("generations", {
   styleStrength: real("style_strength").default(0.6),
   width: integer("width").default(512),
   height: integer("height").default(512),
+  isDeleted: boolean("is_deleted").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
