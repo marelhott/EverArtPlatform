@@ -104,7 +104,16 @@ The application uses PostgreSQL with three main tables:
 
 **File Upload Handling**: Memory-based multer storage with size limits for efficient file processing without persistent storage requirements.
 
-## Recent Changes (July 23, 2025)
+## Recent Changes (July 25, 2025)
+
+### Image Management Improvements
+- **Fullscreen Modal Dialog**: Implemented ImageModal component for viewing generated images in fullscreen
+- **Local Image Deletion**: Added one-click delete functionality with trash icon (no confirmation required)
+- **Soft Delete System**: Images are marked as deleted instead of being physically removed, preventing re-loading on restart
+- **Visual Improvements**: Trash icon positioned in bottom-right corner, smaller and more transparent
+- **Reverse Chronological Order**: Newest generated images now appear at the top of the feed
+
+## Previous Changes (July 23, 2025)
 
 ### Completed User Data Synchronization (MAJOR SUCCESS)
 - **Full Data Recovery**: Successfully found and synchronized 13 user-generated images from localStorage

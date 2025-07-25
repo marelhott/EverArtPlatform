@@ -1,6 +1,6 @@
 import { models, generations, users, type Model, type Generation, type User, type InsertModel, type InsertGeneration, type InsertUser } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -108,7 +108,7 @@ export class MemStorage implements IStorage {
   }
 
   async getAllGenerations(): Promise<Generation[]> {
-    return Array.from(this.generations.values());
+    return Array.from(this.generations.values()).sort((a, b) => b.id - a.id);
   }
 
   async getGeneration(id: number): Promise<Generation | undefined> {
@@ -209,7 +209,7 @@ export class DatabaseStorage implements IStorage {
   async getAllGenerations(): Promise<Generation[]> {
     return await db.select().from(generations)
       .where(eq(generations.isDeleted, false))
-      .orderBy(generations.id);
+      .orderBy(desc(generations.id));
   }
 
   async getGeneration(id: number): Promise<Generation | undefined> {
