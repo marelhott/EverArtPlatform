@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GenerationSlots } from "@/components/generation-slots";
 import { Wand2, Upload, X, Download, Plus, Trash2, Check, ZoomIn, ImageIcon } from "lucide-react";
+import ImageModal from "./image-modal";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -335,59 +336,55 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             <div className="grid grid-cols-4 gap-4">
               {generations.map((generation: any) => (
                 <div key={generation.id} className="group relative">
-                  <div className="aspect-square overflow-hidden rounded-lg bg-muted">
-                    {generation.status === 'FAILED' ? (
+                  {generation.status === 'FAILED' ? (
+                    <div className="aspect-square overflow-hidden rounded-lg bg-muted">
                       <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                         <div className="text-center">
                           <ImageIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-xs text-gray-500">Generování selhalo</p>
                         </div>
                       </div>
-                    ) : (
-                      <img
-                        src={generation.cloudinaryUrl || generation.outputImageUrl || generation.imageUrl}
-                        alt={`Generation ${generation.id}`}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                                <div class="text-center">
-                                  <svg class="h-8 w-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                  <p class="text-xs text-gray-500">Obrázek nedostupný</p>
+                    </div>
+                  ) : (
+                    <ImageModal 
+                      imageUrl={generation.cloudinaryUrl || generation.outputImageUrl || generation.imageUrl}
+                      modelName={generation.modelName}
+                      generation={generation}
+                    >
+                      <div className="aspect-square overflow-hidden rounded-lg bg-muted">
+                        <img
+                          src={generation.cloudinaryUrl || generation.outputImageUrl || generation.imageUrl}
+                          alt={`Generation ${generation.id}`}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                          data-testid={`img-generation-${generation.id}`}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                                  <div class="text-center">
+                                    <svg class="h-8 w-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p class="text-xs text-gray-500">Obrázek nedostupný</p>
+                                  </div>
                                 </div>
-                              </div>
-                            `;
-                          }
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-8 w-8 p-0"
-                        onClick={() => downloadImage(generation.outputImageUrl || generation.imageUrl, `generation-${generation.id}.png`)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-8 w-8 p-0"
-                        onClick={() => window.open(generation.outputImageUrl || generation.imageUrl, '_blank')}
-                      >
-                        <ZoomIn className="h-4 w-4" />
-                      </Button>
+                              `;
+                            }
+                          }}
+                        />
+                      </div>
+                    </ImageModal>
+                  )}
+                  
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+                    <div className="bg-white/90 dark:bg-black/90 px-3 py-1 rounded-md text-sm font-medium">
+                      Klikněte pro zvětšení
                     </div>
                   </div>
+                  
                   <div className="absolute bottom-2 left-2 right-2">
                     <Badge variant="secondary" className="text-[10px] py-0 px-1 bg-black/70 text-white">
                       {generation.modelName || 'Unknown Model'}
