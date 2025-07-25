@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
-import { VisuallyHidden } from "@/components/ui/visually-hidden";
+
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Wand2 } from "lucide-react";
 import { localGenerationsStorage, type LocalGeneration } from "@/lib/localStorage";
@@ -69,37 +68,26 @@ export default function ModificationsTab() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {generations.map((generation: LocalGeneration) => (
                 <div key={generation.id} className="relative group">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <div className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-all">
-                        {generation.outputImageUrl ? (
-                          <img 
-                            src={generation.outputImageUrl} 
-                            alt="Vygenerovaný obrázek"
-                            className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center">
-                            <Wand2 className="h-8 w-8 text-muted-foreground" />
-                          </div>
-                        )}
+                  <div 
+                    className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-all"
+                    onClick={() => {
+                      if (generation.outputImageUrl) {
+                        window.open(generation.outputImageUrl, '_blank', 'fullscreen=yes,scrollbars=no,menubar=no,toolbar=no,location=no,status=no');
+                      }
+                    }}
+                  >
+                    {generation.outputImageUrl ? (
+                      <img 
+                        src={generation.outputImageUrl} 
+                        alt="Vygenerovaný obrázek"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-secondary/20 to-accent/20 flex items-center justify-center">
+                        <Wand2 className="h-8 w-8 text-muted-foreground" />
                       </div>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
-                      <VisuallyHidden>
-                        <DialogTitle>Zvětšený obrázek</DialogTitle>
-                      </VisuallyHidden>
-                      {generation.outputImageUrl && (
-                        <div className="flex justify-center items-center min-h-0">
-                          <img 
-                            src={generation.outputImageUrl} 
-                            alt="Vygenerovaný obrázek - zvětšený"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                          />
-                        </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
+                    )}
+                  </div>
                   
                   {/* Delete button */}
                   <Button
