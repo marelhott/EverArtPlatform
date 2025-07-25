@@ -71,7 +71,7 @@ export default function ModificationsTab() {
                 <div key={generation.id} className="relative group">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <div className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-all">
+                      <button className="aspect-square cursor-pointer overflow-hidden rounded-lg shadow-sm hover:shadow-md transition-all w-full p-0 border-0 bg-transparent">
                         {generation.outputImageUrl ? (
                           <img 
                             src={generation.outputImageUrl} 
@@ -83,18 +83,18 @@ export default function ModificationsTab() {
                             <Wand2 className="h-8 w-8 text-muted-foreground" />
                           </div>
                         )}
-                      </div>
+                      </button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-6xl max-h-[95vh] p-2 overflow-auto">
+                    <DialogContent className="max-w-6xl max-h-[95vh] p-4">
                       <VisuallyHidden>
                         <DialogTitle>Zvětšený obrázek</DialogTitle>
                       </VisuallyHidden>
                       {generation.outputImageUrl && (
-                        <div className="flex justify-center items-center min-h-0">
+                        <div className="flex justify-center items-center">
                           <img 
                             src={generation.outputImageUrl} 
                             alt="Vygenerovaný obrázek - zvětšený"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg"
                           />
                         </div>
                       )}
@@ -105,8 +105,9 @@ export default function ModificationsTab() {
                   <Button
                     size="sm"
                     variant="destructive"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 z-10"
                     onClick={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
                       deleteGeneration(generation.id);
                     }}
