@@ -1,4 +1,5 @@
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { X, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -42,6 +43,13 @@ export default function ImageModal({ imageUrl, modelName, children, generation }
         </div>
       </DialogTrigger>
       <DialogContent className="max-w-none w-screen h-screen p-0 bg-black/95 border-none">
+        <VisuallyHidden>
+          <DialogTitle>Zobrazení obrázku</DialogTitle>
+          <DialogDescription>
+            Vygenerovaný obrázek z modelu {modelName} v plné velikosti
+          </DialogDescription>
+        </VisuallyHidden>
+        
         {/* Header with controls */}
         <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
           {modelName && (

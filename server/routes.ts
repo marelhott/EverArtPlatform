@@ -380,6 +380,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete generation (local only, not from EverArt API)
+  app.delete("/api/generations/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const generationId = parseInt(id);
+      
+      if (isNaN(generationId)) {
+        return res.status(400).json({ message: "Neplatné ID generování" });
+      }
+
+      // Delete from local storage only
+      const success = await storage.deleteGeneration(generationId);
+      
+      if (success) {
+        res.json({ message: "Generování úspěšně smazáno" });
+      } else {
+        res.status(404).json({ message: "Generování nenalezeno" });
+      }
+    } catch (error) {
+      console.error("Error deleting generation:", error);
+      res.status(500).json({ message: "Nepodařilo se smazat generování" });
+    }
+  });
+
   // Generate images - supports both single and multi-model generation
   app.post("/api/generations", upload.single("image"), async (req, res) => {
     try {

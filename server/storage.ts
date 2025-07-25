@@ -143,6 +143,10 @@ export class MemStorage implements IStorage {
   async deleteGeneration(id: number): Promise<boolean> {
     return this.generations.delete(id);
   }
+
+  async deleteGeneration(id: number): Promise<boolean> {
+    return this.generations.delete(id);
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -222,6 +226,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(generations.id, id))
       .returning();
     return generation || undefined;
+  }
+
+  async deleteGeneration(id: number): Promise<boolean> {
+    const result = await db.delete(generations).where(eq(generations.id, id));
+    return result.rowCount > 0;
   }
 
   async deleteGeneration(id: number): Promise<boolean> {

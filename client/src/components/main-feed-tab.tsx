@@ -99,6 +99,38 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   const generations: any[] = (generationsData as any)?.generations || [];
 
+  // Delete generation mutation
+  const deleteGenerationMutation = useMutation({
+    mutationFn: async (generationId: number) => {
+      const response = await fetch(`/api/generations/${generationId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete generation');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Obrázek smazán",
+        description: "Generovaný obrázek byl úspěšně smazán",
+      });
+      refetchGenerations();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Chyba při mazání",
+        description: error.message || "Nepodařilo se smazat obrázek",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteGeneration = (generationId: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent opening the modal
+    deleteGenerationMutation.mutate(generationId);
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -383,6 +415,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
                     <div className="bg-white/90 dark:bg-black/90 px-3 py-1 rounded-md text-sm font-medium">
                       Klikněte pro zvětšení
                     </div>
+                  </div>
+                  
+                  {/* Delete button */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="h-6 w-6 p-0 bg-red-500/80 hover:bg-red-600/90"
+                      onClick={(e) => handleDeleteGeneration(generation.id, e)}
+                      data-testid={`button-delete-generation-${generation.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                   
                   <div className="absolute bottom-2 left-2 right-2">
