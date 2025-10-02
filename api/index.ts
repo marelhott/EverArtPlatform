@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { registerRoutes } from "../server/routes";
+// import { registerRoutes } from "../server/routes";
 
 // Environment configuration
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -72,7 +72,16 @@ async function initializeApp() {
       res.json({ message: "Direct test endpoint works", timestamp: new Date().toISOString() });
     });
     
-    await registerRoutes(app);
+    // Simple models endpoint for testing
+    app.get("/api/models", (req, res) => {
+      res.json({ 
+        message: "Models endpoint works",
+        models: [],
+        timestamp: new Date().toISOString()
+      });
+    });
+    
+    // await registerRoutes(app);
     
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
