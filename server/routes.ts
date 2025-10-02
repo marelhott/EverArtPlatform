@@ -52,7 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Get all models (only local models, EverArt models filtered by deletion)
+  // Get all models (simplified version for testing)
   app.get("/api/models", async (req, res) => {
     try {
       if (!EVERART_API_KEY) {
@@ -63,48 +63,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Fetching models from EverArt API...");
-      // Get EverArt models for sync
+      // Get EverArt models directly without storage
       const response = await apiClient.get("/models");
-      console.log("EverArt API response:", response.status, `Found ${response.data.models?.length || 0} models`);
-      const everartModels = response.data.models || [];
+      console.log("EverArt API response:", response.status);
+      const everartModels = response.data.data || response.data.models || [];
       
-      console.log(`Processing ${everartModels.length} models from EverArt API...`);
-      
-      // Store/update NEW models in local storage only (skip deleted ones)
-      for (const model of everartModels) {
-        try {
-          const isDeleted = await storage.isModelDeleted(model.id);
-          if (isDeleted) {
-            console.log(`Skipping deleted model: ${model.name} (${model.id})`);
-            continue;
-          }
-          
-          const existingModel = await storage.getModelByEverartId(model.id);
-          if (!existingModel) {
-            console.log(`Creating new model: ${model.name} (${model.id})`);
-            await storage.createModel({
-              everartId: model.id,
-              name: model.name,
-              subject: model.subject || "STYLE",
-              status: model.status,
-              thumbnailUrl: model.thumbnail_url
-            });
-          } else {
-            console.log(`Updating existing model: ${model.name} (${model.id})`);
-            await storage.updateModelStatus(model.id, model.status, model.thumbnail_url);
-          }
-        } catch (modelError) {
-          console.error(`Error processing model ${model.id}:`, modelError);
-        }
-      }
-      
-      // Return ONLY models that exist in local storage (deleted models won't be included)
-      const localModels = await storage.getAllModels();
-      console.log(`Returning ${localModels.length} models from local storage`);
-      res.json({ models: localModels });
+      console.log(`Returning ${everartModels.length} models from EverArt API`);
+      res.json({ 
+        models: everartModels,
+        source: 'everart-api-direct',
+        count: everartModels.length
+      });
     } catch (error) {
       console.error("Error fetching models:", error);
-      res.status(500).json({ message: "Nelze načíst modely" });
+      res.status(500).json({ 
+        message: "Nelze načíst modely",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -481,13 +456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
 
                 // Poll for completion of this specific image
-                const maxAttempts = 60;
+                const maxAttempts = 120; // Increased from 60 to 120 (6 minutes total)
                 let attempts = 0;
+                
+                console.log(`Starting polling for generation ${genId}, max attempts: ${maxAttempts}`);
                 
                 while (attempts < maxAttempts) {
                   try {
                     const statusResponse = await apiClient.get(`/generations/${genId}`);
                     const genStatus = statusResponse.data.generation;
+                    
+                    console.log(`Polling attempt ${attempts + 1}/${maxAttempts} for generation ${genId}: status=${genStatus.status}`);
                     
                     if (genStatus.status === 'SUCCEEDED' && genStatus.image_url) {
                       // Upload to Cloudinary if configured
@@ -540,11 +519,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 if (attempts >= maxAttempts) {
                   // Timeout
+                  console.log(`Generation ${genId} timed out after ${maxAttempts} attempts (${maxAttempts * 3} seconds)`);
                   await storage.updateGeneration(generation.id, { 
                     status: "FAILED", 
-                    errorMessage: "Generation timeout"
+                    errorMessage: `Generování trvá příliš dlouho (více než ${Math.floor(maxAttempts * 3 / 60)} minut). Zkuste to prosím později.`
                   });
-                  allResults.push({ modelId, modelName, success: false, error: "Timeout" });
+                  allResults.push({ 
+                    modelId, 
+                    modelName, 
+                    success: false, 
+                    error: `Timeout po ${Math.floor(maxAttempts * 3 / 60)} minutách` 
+                  });
                 }
               }
             } else {
