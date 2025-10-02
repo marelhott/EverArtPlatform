@@ -7,34 +7,37 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Use native fetch instead of axios
-    const response = await fetch(`${BASE_URL}/models`, {
-      method: 'GET',
-      headers: {
-        "Authorization": `Bearer ${EVERART_API_KEY}`,
-        "Accept": "application/json",
-        "Content-Type": "application/json"
+    // Temporarily return mock data to test endpoint functionality
+    const mockModels = [
+      {
+        id: "model_1",
+        name: "Test Model 1",
+        subject: "STYLE",
+        status: "READY",
+        thumbnail_url: "https://example.com/thumb1.jpg"
+      },
+      {
+        id: "model_2", 
+        name: "Test Model 2",
+        subject: "STYLE",
+        status: "READY",
+        thumbnail_url: "https://example.com/thumb2.jpg"
       }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const everartModels = data.data || [];
+    ];
     
     res.status(200).json({
       success: true,
-      models: everartModels,
-      count: everartModels.length,
-      source: 'everart-api-fetch'
+      models: mockModels,
+      count: mockModels.length,
+      source: 'mock-data',
+      api_key_configured: !!EVERART_API_KEY,
+      base_url: BASE_URL
     });
 
   } catch (error) {
-    console.error('Models fetch endpoint error:', error);
+    console.error('Models endpoint error:', error);
     res.status(500).json({ 
-      error: 'Failed to fetch models from API',
+      error: 'Failed to process models request',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
