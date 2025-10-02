@@ -1,30 +1,11 @@
 [build]
-  # Build command pro frontend
   command = "npm run build"
-  # Výstupní složka po buildu
-  publish = "client/dist"
-  # Složka s Netlify Functions
-  functions = "netlify/functions"
+  publish = "dist"
 
 [build.environment]
-  # Node.js verze
   NODE_VERSION = "18"
-
-# Redirects pro SPA routing
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Headers pro CORS
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
