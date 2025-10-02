@@ -67,6 +67,11 @@ let initialized = false;
 
 async function initializeApp() {
   if (!initialized) {
+    // Simple test endpoint
+    app.get("/api/test-direct", (req, res) => {
+      res.json({ message: "Direct test endpoint works", timestamp: new Date().toISOString() });
+    });
+    
     await registerRoutes(app);
     
     // Error handling middleware
