@@ -15,7 +15,7 @@
   "rewrites": [
     {
       "source": "/api/models",
-      "destination": "/api/models-fetch.ts"
+      "destination": "/api/models.js"
     },
     {
       "source": "/api/((?!models|test-simple|debug|test-db|models-simple|models-api-only|models-fetch).*)",
