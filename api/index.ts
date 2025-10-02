@@ -1,103 +1,29 @@
-import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session";
-// import { registerRoutes } from "../server/routes";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Environment configuration
-const NODE_ENV = process.env.NODE_ENV || 'production';
-const IS_PRODUCTION = true; // Always production on Vercel
-const SESSION_SECRET = process.env.SESSION_SECRET || 'your-secret-key-change-in-production';
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Nastavte CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-// Warn about missing SESSION_SECRET in production
-if (!process.env.SESSION_SECRET) {
-  console.warn('WARNING: SESSION_SECRET environment variable is not set. Using default secret which is insecure for production.');
-}
-
-const app = express();
-
-// Configure Express environment
-app.set('env', 'production');
-
-// Session configuration
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true, // Always secure on Vercel
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
-}));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      console.log(logLine);
-    }
-  });
-
-  next();
-});
-
-// Initialize routes
-let initialized = false;
-
-async function initializeApp() {
-  if (!initialized) {
-    // Simple test endpoint
-    app.get("/api/test-direct", (req, res) => {
-      res.json({ message: "Direct test endpoint works", timestamp: new Date().toISOString() });
+  // Jednoduché routování
+  const path = req.url || '/';
+  
+  if (path === '/' || path === '/api') {
+    return res.status(200).json({
+      message: 'Ever Art Platform API',
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production'
     });
-    
-    // Simple models endpoint for testing
-    app.get("/api/models", (req, res) => {
-      res.json({ 
-        message: "Models endpoint works",
-        models: [],
-        timestamp: new Date().toISOString()
-      });
-    });
-    
-    // await registerRoutes(app);
-    
-    // Error handling middleware
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-      console.error(err);
-    });
-    
-    initialized = true;
   }
-  return app;
-}
 
-// Vercel serverless function handler
-export default async function handler(req: any, res: any) {
-  const app = await initializeApp();
-  return app(req, res);
+  // Fallback
+  return res.status(404).json({ error: 'Not found', path });
 }
