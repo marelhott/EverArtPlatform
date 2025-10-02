@@ -4,11 +4,21 @@
   "functions": {
     "api/index.ts": {
       "maxDuration": 60
+    },
+    "api/models-fetch.ts": {
+      "maxDuration": 30
+    },
+    "api/test-simple.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/models",
+      "destination": "/api/models-fetch.ts"
+    },
+    {
+      "source": "/api/((?!models|test-simple|debug|test-db|models-simple|models-api-only|models-fetch).*)",
       "destination": "/api/index.ts"
     },
     {
