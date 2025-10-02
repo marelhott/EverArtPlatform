@@ -1,7 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "../server/routes";
-import { serveStatic } from "../server/vite";
 
 // Environment configuration
 const NODE_ENV = process.env.NODE_ENV || 'production';
