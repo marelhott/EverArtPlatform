@@ -29,6 +29,16 @@
   status = 200
 
 [[redirects]]
+  from = "/api/models/:modelId/apply"
+  to = "/.netlify/functions/models-apply"
+  status = 200
+
+[[redirects]]
+  from = "/api/models/:modelId/status"
+  to = "/.netlify/functions/models-status"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
