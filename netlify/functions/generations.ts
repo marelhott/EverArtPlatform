@@ -95,7 +95,7 @@ export const handler: Handler = async (event) => {
       for (const modelId of modelIds) {
         try {
           const generationPayload = {
-            prompt: "Apply style to this image",  // Required by API
+            prompt: " ",  // Required by API but not used for img2img style transfer
             type: "img2img",
             image: uploadData.file_url,  // Required for img2img
             image_count: parseInt(numImages || "1"),
