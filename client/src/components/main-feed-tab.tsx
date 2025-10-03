@@ -92,12 +92,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   const models: Model[] = (modelsData as any)?.models || [];
 
-  // Load all generations for the feed
+  // Load all generations from Blob Storage
   const { data: generationsData, refetch: refetchGenerations } = useQuery({
-    queryKey: ["/api/generations"],
+    queryKey: ["/api/blob/generations/list"],
+    queryFn: async () => {
+      const response = await fetch("/api/blob/generations/list");
+      if (!response.ok) {
+        throw new Error("Failed to fetch generations");
+      }
+      return response.json();
+    },
   });
 
-  const dbGenerations: any[] = (generationsData as any)?.generations || [];
+  const blobGenerations: any[] = (generationsData as any)?.generations || [];
   
   // Load generations from localStorage
   const [localGenerations, setLocalGenerations] = useState<LocalGeneration[]>([]);
@@ -133,9 +140,12 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
     return () => clearInterval(interval);
   }, []);
   
-  // Combine database generations and localStorage generations
+  // Combine Blob Storage generations and localStorage generations
   const generations = [
-    ...dbGenerations,
+    ...blobGenerations.map(gen => ({
+      ...gen,
+      imageUrl: gen.outputImageUrl || gen.imageUrl,
+    })),
     ...localGenerations.map(gen => ({
       id: gen.id,
       outputImageUrl: gen.outputImageUrl,
@@ -148,30 +158,37 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
     }))
   ];
   
-  console.log(`📊 Celkem zobrazuji ${generations.length} generací:`, {
-    fromDB: dbGenerations.length,
+  // Odstranit duplicity (pokud jsou v obou)
+  const uniqueGenerations = Array.from(
+    new Map(generations.map(gen => [gen.id, gen])).values()
+  );
+  
+  console.log(`📊 Celkem zobrazuji ${uniqueGenerations.length} generací:`, {
+    fromBlob: blobGenerations.length,
     fromLocalStorage: localGenerations.length,
-    total: generations.length,
-    urls: generations.map(g => g.imageUrl?.substring(0, 60))
+    total: uniqueGenerations.length,
+    urls: uniqueGenerations.map(g => g.imageUrl?.substring(0, 60))
   });
 
   // Delete generation mutation
   const deleteGenerationMutation = useMutation({
     mutationFn: async (generationId: string | number) => {
-      // Try to delete from localStorage first
+      // Try to delete from Blob Storage
+      const blobResponse = await fetch(`/api/blob/generations/${generationId}`, {
+        method: 'DELETE',
+      });
+      
+      if (blobResponse.ok) {
+        return { success: true, source: 'blob' };
+      }
+      
+      // If not in blob, try localStorage
       if (typeof generationId === 'string') {
         localGenerationsStorage.deleteGeneration(generationId);
         return { success: true, source: 'localStorage' };
       }
       
-      // Otherwise delete from database
-      const response = await fetch(`/api/generations/${generationId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete generation');
-      }
-      return response.json();
+      throw new Error('Failed to delete generation');
     },
     onSuccess: (data) => {
       toast({
@@ -180,7 +197,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       });
       
       if (data.source === 'localStorage') {
-        // Reload localStorage generations
         setLocalGenerations(localGenerationsStorage.getGenerations());
       } else {
         refetchGenerations();
@@ -370,32 +386,68 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
       // Po dokončení všech generací
       if (completedGenerations.length > 0) {
-        // Uložit vygenerované obrázky do localStorage
-        completedGenerations.forEach((gen, index) => {
-          // Použijeme gen.id z API, nebo vytvoříme unikátní ID s timestamp + random
+        // Připravit data pro uložení
+        const generationsToSave = completedGenerations.map((gen, index) => {
           const uniqueId = gen.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const modelName = models.find(m => m.everartId === variables.selectedModels[0])?.name;
           
-          const localGeneration: LocalGeneration = {
+          return {
             id: uniqueId,
             outputImageUrl: gen.imageUrl,
             inputImageUrl: inputImagePreview,
-            modelId: variables.selectedModels[0] || '', // První vybraný model
-            createdAt: gen.createdAt || new Date().toISOString()
+            modelId: variables.selectedModels[0] || '',
+            modelName: modelName || 'Unknown Model',
+            createdAt: gen.createdAt || new Date().toISOString(),
+            width: 1024,
+            height: 1024,
+            styleStrength: variables.styleStrength
           };
-          
-          console.log(`💾 Ukládám obrázek ${index + 1}:`, {
-            id: uniqueId,
-            imageUrl: gen.imageUrl,
-            fullGen: gen
-          });
-          
-          localGenerationsStorage.saveGeneration(localGeneration);
         });
 
-        toast({
-          title: "Hotovo!",
-          description: `Úspěšně vygenerováno ${completedGenerations.length} obrázků`,
-        });
+        console.log(`💾 Ukládám ${generationsToSave.length} obrázků do Blob Storage:`, generationsToSave);
+        
+        // Uložit do Blob Storage
+        try {
+          const saveResponse = await fetch("/api/blob/generations/save", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(generationsToSave),
+          });
+
+          if (saveResponse.ok) {
+            const saveResult = await saveResponse.json();
+            console.log(`✅ Uloženo do Blob Storage:`, saveResult);
+            
+            toast({
+              title: "Hotovo!",
+              description: `Úspěšně vygenerováno a uloženo ${completedGenerations.length} obrázků`,
+            });
+          } else {
+            console.error('Failed to save to Blob Storage, falling back to localStorage');
+            // Fallback na localStorage pokud selže Blob
+            generationsToSave.forEach(gen => {
+              localGenerationsStorage.saveGeneration(gen);
+            });
+            
+            toast({
+              title: "Hotovo!",
+              description: `Úspěšně vygenerováno ${completedGenerations.length} obrázků (uloženo lokálně)`,
+            });
+          }
+        } catch (error) {
+          console.error('Error saving to Blob Storage:', error);
+          // Fallback na localStorage
+          generationsToSave.forEach(gen => {
+            localGenerationsStorage.saveGeneration(gen);
+          });
+          
+          toast({
+            title: "Hotovo!",
+            description: `Úspěšně vygenerováno ${completedGenerations.length} obrázků`,
+          });
+        }
       }
 
       refetchGenerations();
@@ -581,9 +633,9 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         <ScrollArea className="h-full">
 
 
-          {generations.length > 0 && (
+          {uniqueGenerations.length > 0 && (
             <div className="grid grid-cols-4 gap-4">
-              {generations.map((generation: any) => (
+              {uniqueGenerations.map((generation: any) => (
                 <div key={generation.id} className="group relative">
                   {generation.status === 'FAILED' ? (
                     <div className="aspect-square overflow-hidden rounded-lg bg-muted">

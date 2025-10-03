@@ -59,6 +59,21 @@
   status = 200
 
 [[redirects]]
+  from = "/api/blob/generations/save"
+  to = "/.netlify/functions/blob-generations-save"
+  status = 200
+
+[[redirects]]
+  from = "/api/blob/generations/list"
+  to = "/.netlify/functions/blob-generations-list"
+  status = 200
+
+[[redirects]]
+  from = "/api/blob/generations/:generationId"
+  to = "/.netlify/functions/blob-generations-delete"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
