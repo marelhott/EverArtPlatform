@@ -165,6 +165,10 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         reader.onload = () => {
           if (typeof reader.result === 'string') {
             const base64 = reader.result.split(',')[1];
+            console.log("Base64 preview (first 100 chars):", base64.substring(0, 100));
+            console.log("Base64 length:", base64.length);
+            console.log("File type:", data.inputImage.type);
+            console.log("File size:", data.inputImage.size);
             resolve(base64);
           } else {
             reject(new Error('Failed to convert file to base64'));
