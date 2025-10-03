@@ -17,7 +17,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { everArtApi } from "@/lib/everart-api";
 import { localGenerationsStorage, LocalGeneration, loadApplyModelState, saveApplyModelState } from "@/lib/localStorage";
-import { DebugPanel, useDebugLogs } from "./debug-panel";
 
 interface Model {
   id: number;
@@ -72,7 +71,6 @@ interface MainFeedTabProps {
 
 export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTabProps) {
   const { toast } = useToast();
-  const { logs, addLog, clearLogs } = useDebugLogs();
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [inputImage, setInputImage] = useState<File | null>(null);
   const [inputImagePreview, setInputImagePreview] = useState("");
@@ -229,12 +227,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   const generateImagesMutation = useMutation({
     mutationFn: async (data: ApplyModelForm & { inputImage: File; selectedModels: string[] }) => {
-      addLog('info', '🚀 Zahájeno generování', {
-        modelsCount: data.selectedModels.length,
-        fileSize: data.inputImage.size,
-        fileType: data.inputImage.type
-      });
-
       // Převést File na base64
       const imageBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -242,17 +234,12 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         reader.onload = () => {
           if (typeof reader.result === 'string') {
             const base64 = reader.result.split(',')[1];
-            addLog('success', '✅ Obrázek převeden na base64', {
-              base64Length: base64.length,
-              preview: base64.substring(0, 100) + '...'
-            });
             resolve(base64);
           } else {
             reject(new Error('Failed to convert file to base64'));
           }
         };
         reader.onerror = (error) => {
-          addLog('error', '❌ Chyba při převodu na base64', error);
           reject(error);
         };
       });
@@ -268,8 +255,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         numImages: data.numImages.toString(),
       };
 
-      addLog('info', '📤 Posílám request na server', payload);
-
       const response = await fetch("/api/generations", {
         method: "POST",
         headers: {
@@ -278,23 +263,16 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         body: JSON.stringify(payload),
       });
 
-      addLog('info', `📨 Odpověď serveru: ${response.status} ${response.statusText}`);
-
       if (!response.ok) {
         const errorData = await response.json();
-        addLog('error', '❌ Server vrátil chybu', errorData);
         throw new Error(errorData.message || "Chyba při generování obrázků");
       }
 
       const result = await response.json();
-      addLog('success', '✅ Server odpověděl úspěšně', result);
       return result;
     },
     onSuccess: async (data, variables) => {
-      addLog('info', '🎯 onSuccess callback spuštěn', data);
-
       if (!data.success || !data.results) {
-        addLog('error', '❌ Data neobsahují success nebo results', data);
         toast({
           title: "Chyba",
           description: "Generování se nezdařilo",
@@ -311,10 +289,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         }
       });
 
-      addLog('info', `📋 Nalezeno ${allGenerationIds.length} generation IDs`, allGenerationIds);
-
       if (allGenerationIds.length === 0) {
-        addLog('error', '❌ Žádné generation IDs!', data.results);
         toast({
           title: "Chyba",
           description: "Nebyly vráceny žádné generation IDs",
@@ -342,16 +317,12 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             const statusRes = await fetch(`/api/generations/${genId}/status`);
             const statusData = await statusRes.json();
 
-            addLog('info', `📊 Generation ${genId} status: ${statusData.status}`, statusData);
-
             if (statusData.status === 'SUCCEEDED' && statusData.imageUrl) {
               completed = true;
-              addLog('success', `✅ Generation ${genId} SUCCEEDED!`, { imageUrl: statusData.imageUrl });
               return { success: true, data: statusData };
             } else if (statusData.status === 'FAILED') {
               completed = true;
               const errorMsg = statusData.error || statusData.failureReason || 'Unknown error';
-              addLog('error', `❌ Generation ${genId} FAILED: ${errorMsg}`, statusData);
               toast({
                 title: "Generování selhalo",
                 description: `Error: ${errorMsg}`,
@@ -364,7 +335,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
               attempts++;
             }
           } catch (error) {
-            addLog('error', `❌ Chyba při pollování ${genId}`, error);
             await new Promise(resolve => setTimeout(resolve, pollInterval));
             attempts++;
           }
@@ -420,12 +390,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
           });
           
           localGenerationsStorage.saveGeneration(localGeneration);
-          
-          addLog('success', `💾 Obrázek ${index + 1}/${completedGenerations.length} uložen do localStorage`, {
-            id: localGeneration.id,
-            imageUrl: localGeneration.outputImageUrl,
-            urlPreview: localGeneration.outputImageUrl?.substring(0, 100)
-          });
         });
 
         toast({
@@ -477,11 +441,6 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   return (
     <div className="flex h-[calc(100vh-140px)]">
-      {/* Debug Panel - Fixed position */}
-      <div className="fixed bottom-4 right-4 z-40 max-w-2xl">
-        <DebugPanel logs={logs} onClear={clearLogs} />
-      </div>
-
       {/* Left Panel - Compact Controls */}
       <div className="w-80 bg-card/50 backdrop-blur-sm ml-12">
         <div className="p-6">
