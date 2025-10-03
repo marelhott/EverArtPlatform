@@ -52,7 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Get all models (simplified version for testing)
+  // Get all models mapped to app schema shape
   app.get("/api/models", async (req, res) => {
     try {
       if (!EVERART_API_KEY) {
@@ -63,16 +63,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Fetching models from EverArt API...");
-      // Get EverArt models directly without storage
+      // Get EverArt models and map to app's expected shape
       const response = await apiClient.get("/models");
       console.log("EverArt API response:", response.status);
       const everartModels = response.data.data || response.data.models || [];
+
+      const mapped = everartModels.map((m: any) => ({
+        // App schema expects these keys (see shared/schema.ts)
+        // We don't persist here; just provide shape for UI
+        id: m.id, // used as React key only
+        everartId: m.id,
+        name: m.name,
+        subject: m.subject || m.type || "STYLE",
+        status: m.status || "READY",
+        thumbnailUrl: m.thumbnail_url,
+        createdAt: m.created_at || m.createdAt || new Date().toISOString(),
+      }));
       
-      console.log(`Returning ${everartModels.length} models from EverArt API`);
+      console.log(`Returning ${mapped.length} mapped models`);
       res.json({ 
-        models: everartModels,
+        models: mapped,
         source: 'everart-api-direct',
-        count: everartModels.length
+        count: mapped.length
       });
     } catch (error) {
       console.error("Error fetching models:", error);

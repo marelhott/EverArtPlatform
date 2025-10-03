@@ -5,6 +5,35 @@
 [build.environment]
   NODE_VERSION = "18"
 
+[# Netlify Functions output directory]
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/info"
+  to = "/.netlify/functions/info"
+  status = 200
+
+[[redirects]]
+  from = "/api/models"
+  to = "/.netlify/functions/models"
+  status = 200
+
+[[redirects]]
+  from = "/api/generations/sync-cloudinary"
+  to = "/.netlify/functions/generations-sync-cloudinary"
+  status = 200
+
+[[redirects]]
+  from = "/api/generations"
+  to = "/.netlify/functions/generations"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
