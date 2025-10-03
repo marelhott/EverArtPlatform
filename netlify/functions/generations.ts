@@ -85,10 +85,20 @@ export const handler: Handler = async (event) => {
       
       // 2. Nahrát base64 na upload_url
       const imageBuffer = Buffer.from(imageBase64, 'base64');
+      console.log("Uploading image buffer, size:", imageBuffer.length, "bytes");
+      
       const putResponse = await axios.put(uploadData.upload_url, imageBuffer, {
-        headers: { "Content-Type": contentType }
+        headers: { 
+          "Content-Type": contentType,
+          "Content-Length": imageBuffer.length.toString()
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
       });
       console.log("Image uploaded to S3, status:", putResponse.status);
+      
+      // IMPORTANT: Wait a moment for S3 to process the upload
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 3. Spustit generování pro každý model
       const results = [];
