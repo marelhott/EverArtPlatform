@@ -304,12 +304,12 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
         description: `Čeká se na dokončení ${allGenerationIds.length} generování...`,
       });
 
-      // Pollovat status pro všechny generace
+      // Pollovat status pro všechny generace PARALELNĚ
       const pollInterval = 3000; // 3 sekundy
       const maxAttempts = 120; // 6 minut
-      const completedGenerations: any[] = [];
-
-      for (const genId of allGenerationIds) {
+      
+      // Funkce pro pollování jedné generace
+      const pollGeneration = async (genId: string) => {
         let attempts = 0;
         let completed = false;
 
@@ -321,14 +321,9 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             addLog('info', `📊 Generation ${genId} status: ${statusData.status}`, statusData);
 
             if (statusData.status === 'SUCCEEDED' && statusData.imageUrl) {
-              completedGenerations.push(statusData);
               completed = true;
-              
               addLog('success', `✅ Generation ${genId} SUCCEEDED!`, { imageUrl: statusData.imageUrl });
-              toast({
-                title: "Obrázek hotový!",
-                description: `${completedGenerations.length}/${allGenerationIds.length} dokončeno`,
-              });
+              return { success: true, data: statusData };
             } else if (statusData.status === 'FAILED') {
               completed = true;
               const errorMsg = statusData.error || statusData.failureReason || 'Unknown error';
@@ -338,6 +333,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
                 description: `Error: ${errorMsg}`,
                 variant: "destructive",
               });
+              return { success: false, error: errorMsg };
             } else {
               // Stále běží, čekat
               await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -356,15 +352,37 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             description: `Generation ${genId} trvá příliš dlouho`,
             variant: "destructive",
           });
+          return { success: false, error: 'Timeout' };
         }
+
+        return { success: false, error: 'Unknown' };
+      };
+
+      // Pollovat VŠECHNY generace paralelně
+      const results = await Promise.all(allGenerationIds.map(genId => pollGeneration(genId)));
+      
+      // Sbírat úspěšné generace
+      const completedGenerations = results
+        .filter(r => r.success && r.data)
+        .map(r => r.data);
+
+      // Zobrazit notifikaci o dokončení
+      if (completedGenerations.length > 0) {
+        toast({
+          title: "Obrázky hotové!",
+          description: `Úspěšně vygenerováno ${completedGenerations.length}/${allGenerationIds.length} obrázků`,
+        });
       }
 
       // Po dokončení všech generací
       if (completedGenerations.length > 0) {
         // Uložit vygenerované obrázky do localStorage
         completedGenerations.forEach((gen, index) => {
+          // Použijeme gen.id z API, nebo vytvoříme unikátní ID s timestamp + random
+          const uniqueId = gen.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
           const localGeneration: LocalGeneration = {
-            id: gen.id || `${Date.now()}-${index}`,
+            id: uniqueId,
             outputImageUrl: gen.imageUrl,
             inputImageUrl: inputImagePreview,
             modelId: variables.selectedModels[0] || '', // První vybraný model
@@ -372,7 +390,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
           };
           localGenerationsStorage.saveGeneration(localGeneration);
           
-          addLog('success', `💾 Obrázek uložen do localStorage`, {
+          addLog('success', `💾 Obrázek ${index + 1}/${completedGenerations.length} uložen do localStorage`, {
             id: localGeneration.id,
             imageUrl: localGeneration.outputImageUrl
           });
