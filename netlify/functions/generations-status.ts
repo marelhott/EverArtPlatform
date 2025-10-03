@@ -53,6 +53,8 @@ export const handler: Handler = async (event) => {
     const response = await apiClient.get(`/generations/${generationId}`);
     const generation = response.data.generation;
 
+    console.log(`Generation ${generationId} full response:`, JSON.stringify(generation, null, 2));
+
     return {
       statusCode: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,6 +64,8 @@ export const handler: Handler = async (event) => {
         imageUrl: generation.image_url,
         progress: generation.progress,
         createdAt: generation.created_at,
+        error: generation.error,  // Přidat error message
+        failureReason: generation.failure_reason,  // Přidat failure reason
       }),
     };
 

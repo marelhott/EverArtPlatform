@@ -259,9 +259,11 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
               });
             } else if (statusData.status === 'FAILED') {
               completed = true;
+              const errorMsg = statusData.error || statusData.failureReason || 'Unknown error';
+              console.error(`Generation ${genId} failed:`, errorMsg, statusData);
               toast({
                 title: "Generování selhalo",
-                description: `Generation ${genId} failed`,
+                description: `Error: ${errorMsg}`,
                 variant: "destructive",
               });
             } else {
