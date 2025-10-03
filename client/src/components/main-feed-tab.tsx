@@ -316,6 +316,23 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
       // Po dokončení všech generací
       if (completedGenerations.length > 0) {
+        // Uložit vygenerované obrázky do localStorage
+        completedGenerations.forEach((gen, index) => {
+          const localGeneration: LocalGeneration = {
+            id: gen.id || `${Date.now()}-${index}`,
+            outputImageUrl: gen.imageUrl,
+            inputImageUrl: inputImagePreview,
+            modelId: variables.selectedModels[0] || '', // První vybraný model
+            createdAt: gen.createdAt || new Date().toISOString()
+          };
+          localGenerationsStorage.saveGeneration(localGeneration);
+          
+          addLog('success', `💾 Obrázek uložen do localStorage`, {
+            id: localGeneration.id,
+            imageUrl: localGeneration.outputImageUrl
+          });
+        });
+
         toast({
           title: "Hotovo!",
           description: `Úspěšně vygenerováno ${completedGenerations.length} obrázků`,
