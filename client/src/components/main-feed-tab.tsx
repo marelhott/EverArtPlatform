@@ -114,6 +114,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       setLocalGenerations(gens);
     };
     
+    // Při prvním načtení vyčistit staré generace
+    const storageInfo = localGenerationsStorage.getStorageInfo();
+    console.log(`📊 LocalStorage info:`, storageInfo);
+    
+    if (storageInfo.count > 50) {
+      const removed = localGenerationsStorage.cleanOldGenerations(30);
+      console.log(`🧹 Vyčištěno ${removed} starých generací, ponecháno posledních 30`);
+      toast({
+        title: "Úklid dokončen",
+        description: `Vymazáno ${removed} starých obrázků pro uvolnění místa`,
+      });
+    }
+    
     loadLocalGenerations();
     
     // Reload every 2 seconds to catch new generations
