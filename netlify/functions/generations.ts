@@ -95,13 +95,13 @@ export const handler: Handler = async (event) => {
       for (const modelId of modelIds) {
         try {
           const generationPayload = {
-            prompt: " ",  // Required by API but not used for img2img style transfer
+            prompt: " ",  // Required by API
             type: "img2img",
             image: uploadData.file_url,  // Required for img2img
             image_count: parseInt(numImages || "1"),
             width: parseInt(width || "1024"),
             height: parseInt(height || "1024"),
-            // NOTE: style_strength is NOT in API docs, removed
+            style_strength: parseFloat(styleStrength || "0.7"),  // Not documented but used in working Express server
           };
 
           console.log(`Starting generation for model ${modelId}:`, generationPayload);
