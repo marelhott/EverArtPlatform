@@ -107,6 +107,10 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
   useEffect(() => {
     const loadLocalGenerations = () => {
       const gens = localGenerationsStorage.getGenerations();
+      console.log(`🔄 Načteno ${gens.length} generací z localStorage:`, gens.map(g => ({
+        id: g.id,
+        imageUrl: g.outputImageUrl?.substring(0, 80)
+      })));
       setLocalGenerations(gens);
     };
     
@@ -132,6 +136,13 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       status: 'COMPLETED'
     }))
   ];
+  
+  console.log(`📊 Celkem zobrazuji ${generations.length} generací:`, {
+    fromDB: dbGenerations.length,
+    fromLocalStorage: localGenerations.length,
+    total: generations.length,
+    urls: generations.map(g => g.imageUrl?.substring(0, 60))
+  });
 
   // Delete generation mutation
   const deleteGenerationMutation = useMutation({
@@ -388,11 +399,19 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
             modelId: variables.selectedModels[0] || '', // První vybraný model
             createdAt: gen.createdAt || new Date().toISOString()
           };
+          
+          console.log(`💾 Ukládám obrázek ${index + 1}:`, {
+            id: uniqueId,
+            imageUrl: gen.imageUrl,
+            fullGen: gen
+          });
+          
           localGenerationsStorage.saveGeneration(localGeneration);
           
           addLog('success', `💾 Obrázek ${index + 1}/${completedGenerations.length} uložen do localStorage`, {
             id: localGeneration.id,
-            imageUrl: localGeneration.outputImageUrl
+            imageUrl: localGeneration.outputImageUrl,
+            urlPreview: localGeneration.outputImageUrl?.substring(0, 100)
           });
         });
 
