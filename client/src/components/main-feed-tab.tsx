@@ -99,11 +99,50 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
     queryKey: ["/api/generations"],
   });
 
-  const generations: any[] = (generationsData as any)?.generations || [];
+  const dbGenerations: any[] = (generationsData as any)?.generations || [];
+  
+  // Load generations from localStorage
+  const [localGenerations, setLocalGenerations] = useState<LocalGeneration[]>([]);
+  
+  useEffect(() => {
+    const loadLocalGenerations = () => {
+      const gens = localGenerationsStorage.getGenerations();
+      setLocalGenerations(gens);
+    };
+    
+    loadLocalGenerations();
+    
+    // Reload every 2 seconds to catch new generations
+    const interval = setInterval(loadLocalGenerations, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Combine database generations and localStorage generations
+  const generations = [
+    ...dbGenerations,
+    ...localGenerations.map(gen => ({
+      id: gen.id,
+      outputImageUrl: gen.outputImageUrl,
+      imageUrl: gen.outputImageUrl,
+      inputImageUrl: gen.inputImageUrl,
+      modelId: gen.modelId,
+      modelName: models.find(m => m.everartId === gen.modelId)?.name || 'Unknown Model',
+      createdAt: gen.createdAt,
+      status: 'COMPLETED'
+    }))
+  ];
 
   // Delete generation mutation
   const deleteGenerationMutation = useMutation({
-    mutationFn: async (generationId: number) => {
+    mutationFn: async (generationId: string | number) => {
+      // Try to delete from localStorage first
+      if (typeof generationId === 'string') {
+        localGenerationsStorage.deleteGeneration(generationId);
+        return { success: true, source: 'localStorage' };
+      }
+      
+      // Otherwise delete from database
       const response = await fetch(`/api/generations/${generationId}`, {
         method: 'DELETE',
       });
@@ -112,12 +151,18 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Obrázek smazán",
         description: "Generovaný obrázek byl úspěšně smazán",
       });
-      refetchGenerations();
+      
+      if (data.source === 'localStorage') {
+        // Reload localStorage generations
+        setLocalGenerations(localGenerationsStorage.getGenerations());
+      } else {
+        refetchGenerations();
+      }
     },
     onError: (error: any) => {
       toast({
@@ -128,7 +173,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
     },
   });
 
-  const handleDeleteGeneration = (generationId: number, event: React.MouseEvent) => {
+  const handleDeleteGeneration = (generationId: string | number, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent opening the modal
     deleteGenerationMutation.mutate(generationId);
   };
