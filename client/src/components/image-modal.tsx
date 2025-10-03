@@ -42,7 +42,7 @@ export default function ImageModal({ imageUrl, modelName, children, generation }
           {children}
         </div>
       </DialogTrigger>
-      <DialogContent className="max-w-none w-screen h-screen p-0 bg-black/95 border-none">
+      <DialogContent className="max-w-none w-screen h-screen p-0 bg-black/95 border-none z-[100]">
         <VisuallyHidden>
           <DialogTitle>Zobrazení obrázku</DialogTitle>
           <DialogDescription>

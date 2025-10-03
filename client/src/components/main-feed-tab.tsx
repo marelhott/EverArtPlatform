@@ -428,7 +428,7 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
   return (
     <div className="flex h-[calc(100vh-140px)]">
       {/* Debug Panel - Fixed position */}
-      <div className="fixed bottom-4 right-4 z-50 max-w-2xl">
+      <div className="fixed bottom-4 right-4 z-40 max-w-2xl">
         <DebugPanel logs={logs} onClear={clearLogs} />
       </div>
 
