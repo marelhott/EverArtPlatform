@@ -49,6 +49,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/generations/:generationId/status"
+  to = "/.netlify/functions/generations-status"
+  status = 200
+
+[[redirects]]
   from = "/api/generations/:generationId"
   to = "/.netlify/functions/generations-delete"
   status = 200

@@ -98,15 +98,22 @@ export const handler: Handler = async (event) => {
             style_strength: parseFloat(styleStrength || "0.7")
           };
 
+          console.log(`Starting generation for model ${modelId}:`, generationPayload);
+
           const genResponse = await apiClient.post(`/models/${modelId}/generations`, generationPayload);
           const generations = genResponse.data.generations || [];
 
+          console.log(`Model ${modelId} returned ${generations.length} generations`);
+
           if (generations.length > 0) {
+            // Vrátit všechny generationIds pro tento model
+            const generationIds = generations.map((g: any) => g.id);
             results.push({
               modelId,
               success: true,
-              generationId: generations[0].id,
-              message: "Generování zahájeno"
+              generationIds,  // Pole všech generation IDs
+              status: "PROCESSING",
+              message: `Zahájeno ${generationIds.length} generování`
             });
           } else {
             results.push({
@@ -116,10 +123,11 @@ export const handler: Handler = async (event) => {
             });
           }
         } catch (modelError: any) {
+          console.error(`Error for model ${modelId}:`, modelError?.response?.data || modelError?.message);
           results.push({
             modelId,
             success: false,
-            error: modelError?.message || "Chyba při generování"
+            error: modelError?.response?.data?.message || modelError?.message || "Chyba při generování"
           });
         }
       }
@@ -132,7 +140,8 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ 
           success: successCount > 0,
           results,
-          message: `Úspěšně zahájeno ${successCount}/${modelIds.length} generování`
+          message: `Úspěšně zahájeno generování pro ${successCount}/${modelIds.length} modelů. Použijte generationIds pro kontrolu statusu.`,
+          note: "Generování běží asynchronně. Kontrolujte status pomocí GET /api/generations/:id/status"
         }),
       };
 

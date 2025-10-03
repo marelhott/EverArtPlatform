@@ -199,12 +199,100 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
       return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
+      console.log("Generation started:", data);
+
+      if (!data.success || !data.results) {
+        toast({
+          title: "Chyba",
+          description: "Generování se nezdařilo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Sbírat všechny generationIds
+      const allGenerationIds: string[] = [];
+      data.results.forEach((result: any) => {
+        if (result.success && result.generationIds) {
+          allGenerationIds.push(...result.generationIds);
+        }
+      });
+
+      if (allGenerationIds.length === 0) {
+        toast({
+          title: "Chyba",
+          description: "Nebyly vráceny žádné generation IDs",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
-        title: "Úspěch!",
-        description: "Obrázky byly úspěšně vygenerovány",
+        title: "Generování zahájeno",
+        description: `Čeká se na dokončení ${allGenerationIds.length} generování...`,
       });
+
+      // Pollovat status pro všechny generace
+      const pollInterval = 3000; // 3 sekundy
+      const maxAttempts = 120; // 6 minut
+      const completedGenerations: any[] = [];
+
+      for (const genId of allGenerationIds) {
+        let attempts = 0;
+        let completed = false;
+
+        while (attempts < maxAttempts && !completed) {
+          try {
+            const statusRes = await fetch(`/api/generations/${genId}/status`);
+            const statusData = await statusRes.json();
+
+            console.log(`Generation ${genId} status:`, statusData.status);
+
+            if (statusData.status === 'SUCCEEDED' && statusData.imageUrl) {
+              completedGenerations.push(statusData);
+              completed = true;
+              
+              toast({
+                title: "Obrázek hotový!",
+                description: `${completedGenerations.length}/${allGenerationIds.length} dokončeno`,
+              });
+            } else if (statusData.status === 'FAILED') {
+              completed = true;
+              toast({
+                title: "Generování selhalo",
+                description: `Generation ${genId} failed`,
+                variant: "destructive",
+              });
+            } else {
+              // Stále běží, čekat
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+              attempts++;
+            }
+          } catch (error) {
+            console.error(`Error polling generation ${genId}:`, error);
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            attempts++;
+          }
+        }
+
+        if (attempts >= maxAttempts && !completed) {
+          toast({
+            title: "Timeout",
+            description: `Generation ${genId} trvá příliš dlouho`,
+            variant: "destructive",
+          });
+        }
+      }
+
+      // Po dokončení všech generací
+      if (completedGenerations.length > 0) {
+        toast({
+          title: "Hotovo!",
+          description: `Úspěšně vygenerováno ${completedGenerations.length} obrázků`,
+        });
+      }
+
       refetchGenerations();
       // Clear form
       setInputImage(null);
