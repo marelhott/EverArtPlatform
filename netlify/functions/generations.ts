@@ -44,25 +44,107 @@ export const handler: Handler = async (event) => {
     }
 
     try {
-      // POST - multipart upload pro generování s více modely
-      // Prozatím vrátíme informaci že to vyžaduje další konfiguraci
+      // POST - přijmout base64 image a parametry
+      const body = JSON.parse(event.body || '{}');
+      const { imageBase64, imageName, imageMimeType, modelIds, styleStrength, width, height, numImages } = body;
+
+      if (!imageBase64 || !modelIds || !Array.isArray(modelIds) || modelIds.length === 0) {
+        return {
+          statusCode: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            success: false,
+            message: "Chybí povinné parametry: imageBase64, modelIds" 
+          }),
+        };
+      }
+
+      const apiClient = axios.create({
+        baseURL: BASE_URL,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+
+      // 1. Upload obrázku na EverArt
+      const filename = imageName || 'image.jpg';
+      const contentType = imageMimeType || 'image/jpeg';
+
+      const uploadResponse = await apiClient.post("/images/uploads", {
+        images: [{ filename, content_type: contentType }]
+      });
+
+      const uploadData = uploadResponse.data.image_uploads[0];
+      
+      // 2. Nahrát base64 na upload_url
+      const imageBuffer = Buffer.from(imageBase64, 'base64');
+      await axios.put(uploadData.upload_url, imageBuffer, {
+        headers: { "Content-Type": contentType }
+      });
+
+      // 3. Spustit generování pro každý model
+      const results = [];
+      for (const modelId of modelIds) {
+        try {
+          const generationPayload = {
+            prompt: " ",
+            type: "img2img",
+            image: uploadData.file_url,
+            image_count: parseInt(numImages || "1"),
+            width: parseInt(width || "1024"),
+            height: parseInt(height || "1024"),
+            style_strength: parseFloat(styleStrength || "0.7")
+          };
+
+          const genResponse = await apiClient.post(`/models/${modelId}/generations`, generationPayload);
+          const generations = genResponse.data.generations || [];
+
+          if (generations.length > 0) {
+            results.push({
+              modelId,
+              success: true,
+              generationId: generations[0].id,
+              message: "Generování zahájeno"
+            });
+          } else {
+            results.push({
+              modelId,
+              success: false,
+              error: "API nevrátilo žádné generování"
+            });
+          }
+        } catch (modelError: any) {
+          results.push({
+            modelId,
+            success: false,
+            error: modelError?.message || "Chyba při generování"
+          });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+
       return {
-        statusCode: 501,
+        statusCode: successCount > 0 ? 200 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          success: false,
-          message: "Generování s multipart uploadem vyžaduje další konfiguraci na Netlify",
-          note: "Pro plnou funkčnost použijte base64 upload nebo externí storage"
+          success: successCount > 0,
+          results,
+          message: `Úspěšně zahájeno ${successCount}/${modelIds.length} generování`
         }),
       };
+
     } catch (error: any) {
+      console.error("Chyba při generování:", error?.response?.data || error?.message || error);
       return {
         statusCode: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ 
           success: false,
           message: "Chyba při generování", 
-          error: error?.message || "Unknown error" 
+          error: error?.response?.data || error?.message || "Unknown error" 
         }),
       };
     }

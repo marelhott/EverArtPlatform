@@ -158,19 +158,43 @@ export default function MainFeedTab({ showGenerationSlots = false }: MainFeedTab
 
   const generateImagesMutation = useMutation({
     mutationFn: async (data: ApplyModelForm & { inputImage: File; selectedModels: string[] }) => {
-      const formData = new FormData();
-      formData.append("image", data.inputImage);
-      formData.append("modelIds", JSON.stringify(data.selectedModels));
-      formData.append("styleStrength", data.styleStrength.toString());
-      formData.append("numImages", data.numImages.toString());
+      // Převést File na base64
+      const imageBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(data.inputImage);
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+          } else {
+            reject(new Error('Failed to convert file to base64'));
+          }
+        };
+        reader.onerror = (error) => reject(error);
+      });
+
+      const payload = {
+        imageBase64,
+        imageName: data.inputImage.name,
+        imageMimeType: data.inputImage.type,
+        modelIds: data.selectedModels,
+        styleStrength: data.styleStrength.toString(),
+        width: "1024",
+        height: "1024",
+        numImages: data.numImages.toString(),
+      };
 
       const response = await fetch("/api/generations", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error("Chyba při generování obrázků");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Chyba při generování obrázků");
       }
 
       return response.json();
