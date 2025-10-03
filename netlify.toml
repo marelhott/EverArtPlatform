@@ -39,6 +39,21 @@
   status = 200
 
 [[redirects]]
+  from = "/api/models/multi-apply"
+  to = "/.netlify/functions/models-multi-apply"
+  status = 200
+
+[[redirects]]
+  from = "/api/models/:modelId"
+  to = "/.netlify/functions/models-delete"
+  status = 200
+
+[[redirects]]
+  from = "/api/generations/:generationId"
+  to = "/.netlify/functions/generations-delete"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
